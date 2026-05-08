@@ -1,0 +1,335 @@
+import { motion } from 'motion/react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router';
+import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group';
+import { CreditCard, Banknote, Truck, Store, CheckCircle } from 'lucide-react';
+import { toast } from 'sonner';
+
+export default function Checkout() {
+  const { items, getTotal, clearCart } = useCart();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const [deliveryType, setDeliveryType] = useState<'delivery' | 'pickup'>('delivery');
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'cash'>('card');
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const [formData, setFormData] = useState({
+    name: user?.name || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+    address: user?.address || '',
+    cardNumber: '',
+    cardExpiry: '',
+    cardCvv: '',
+  });
+
+  const total = getTotal();
+  const deliveryFee = deliveryType === 'delivery' ? (total > 50 ? 0 : 10) : 0;
+  const finalTotal = total + deliveryFee;
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsProcessing(true);
+
+    // Simulate processing
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    toast.success('¡Pedido realizado con éxito!', {
+      icon: <CheckCircle className="w-4 h-4" />,
+    });
+
+    clearCart();
+    setIsProcessing(false);
+    navigate('/mi-cuenta');
+  };
+
+  if (items.length === 0) {
+    navigate('/carrito');
+    return null;
+  }
+
+  return (
+    <div className="py-16">
+      <div className="container mx-auto px-4 max-w-6xl">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8"
+        >
+          <h1 className="font-display text-4xl font-bold mb-2">
+            Finalizar Pedido
+          </h1>
+          <p className="text-muted-foreground">
+            Completa los datos para procesar tu pedido
+          </p>
+        </motion.div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="grid lg:grid-cols-3 gap-8">
+            {/* Form Section */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Customer Information */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="bg-card rounded-xl p-6 shadow-md border border-border"
+              >
+                <h2 className="font-display text-2xl font-bold mb-6">
+                  Datos del Cliente
+                </h2>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="name">Nombre Completo *</Label>
+                    <Input
+                      id="name"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      required
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="phone">Teléfono *</Label>
+                    <Input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      required
+                      className="mt-1"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label htmlFor="email">Email *</Label>
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      required
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Delivery Type */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="bg-card rounded-xl p-6 shadow-md border border-border"
+              >
+                <h2 className="font-display text-2xl font-bold mb-6">
+                  Tipo de Entrega
+                </h2>
+                <RadioGroup
+                  value={deliveryType}
+                  onValueChange={(value) => setDeliveryType(value as any)}
+                  className="space-y-3"
+                >
+                  <div className="flex items-center space-x-3 border border-border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+                    <RadioGroupItem value="delivery" id="delivery" />
+                    <Label htmlFor="delivery" className="flex items-center gap-3 cursor-pointer flex-1">
+                      <Truck className="w-5 h-5 text-primary" />
+                      <div>
+                        <div className="font-medium">Delivery</div>
+                        <div className="text-sm text-muted-foreground">
+                          {total > 50 ? '¡Gratis!' : 'S/ 10.00'}
+                        </div>
+                      </div>
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-3 border border-border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+                    <RadioGroupItem value="pickup" id="pickup" />
+                    <Label htmlFor="pickup" className="flex items-center gap-3 cursor-pointer flex-1">
+                      <Store className="w-5 h-5 text-primary" />
+                      <div>
+                        <div className="font-medium">Recojo en tienda</div>
+                        <div className="text-sm text-muted-foreground">Gratis</div>
+                      </div>
+                    </Label>
+                  </div>
+                </RadioGroup>
+
+                {deliveryType === 'delivery' && (
+                  <div className="mt-4">
+                    <Label htmlFor="address">Dirección de Entrega *</Label>
+                    <Input
+                      id="address"
+                      name="address"
+                      value={formData.address}
+                      onChange={handleInputChange}
+                      required
+                      placeholder="Calle, número, distrito"
+                      className="mt-1"
+                    />
+                  </div>
+                )}
+              </motion.div>
+
+              {/* Payment Method */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="bg-card rounded-xl p-6 shadow-md border border-border"
+              >
+                <h2 className="font-display text-2xl font-bold mb-6">
+                  Método de Pago
+                </h2>
+                <RadioGroup
+                  value={paymentMethod}
+                  onValueChange={(value) => setPaymentMethod(value as any)}
+                  className="space-y-3 mb-4"
+                >
+                  <div className="flex items-center space-x-3 border border-border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+                    <RadioGroupItem value="card" id="card" />
+                    <Label htmlFor="card" className="flex items-center gap-3 cursor-pointer flex-1">
+                      <CreditCard className="w-5 h-5 text-primary" />
+                      <div className="font-medium">Tarjeta de Crédito/Débito</div>
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-3 border border-border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+                    <RadioGroupItem value="cash" id="cash" />
+                    <Label htmlFor="cash" className="flex items-center gap-3 cursor-pointer flex-1">
+                      <Banknote className="w-5 h-5 text-primary" />
+                      <div className="font-medium">Pago Contraentrega</div>
+                    </Label>
+                  </div>
+                </RadioGroup>
+
+                {paymentMethod === 'card' && (
+                  <div className="space-y-4 mt-4 pt-4 border-t border-border">
+                    <div>
+                      <Label htmlFor="cardNumber">Número de Tarjeta *</Label>
+                      <Input
+                        id="cardNumber"
+                        name="cardNumber"
+                        value={formData.cardNumber}
+                        onChange={handleInputChange}
+                        placeholder="1234 5678 9012 3456"
+                        required
+                        className="mt-1"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="cardExpiry">Vencimiento *</Label>
+                        <Input
+                          id="cardExpiry"
+                          name="cardExpiry"
+                          value={formData.cardExpiry}
+                          onChange={handleInputChange}
+                          placeholder="MM/AA"
+                          required
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="cardCvv">CVV *</Label>
+                        <Input
+                          id="cardCvv"
+                          name="cardCvv"
+                          value={formData.cardCvv}
+                          onChange={handleInputChange}
+                          placeholder="123"
+                          required
+                          maxLength={3}
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            </div>
+
+            {/* Order Summary */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.4 }}
+              className="lg:col-span-1"
+            >
+              <div className="bg-card rounded-xl p-6 shadow-lg border border-border sticky top-24">
+                <h2 className="font-display text-2xl font-bold mb-6">
+                  Tu Pedido
+                </h2>
+
+                <div className="space-y-3 mb-6 max-h-60 overflow-y-auto">
+                  {items.map((item) => (
+                    <div key={item.id} className="flex justify-between text-sm">
+                      <span>
+                        {item.name} × {item.quantity}
+                      </span>
+                      <span className="font-medium">
+                        S/ {(item.price * item.quantity).toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="space-y-3 py-4 border-y border-border">
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Subtotal</span>
+                    <span>S/ {total.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Delivery</span>
+                    <span>
+                      {deliveryFee === 0 ? (
+                        <span className="text-green-600 font-medium">¡GRATIS!</span>
+                      ) : (
+                        `S/ ${deliveryFee.toFixed(2)}`
+                      )}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex justify-between font-bold text-xl mt-4 mb-6">
+                  <span>Total</span>
+                  <span className="text-primary">S/ {finalTotal.toFixed(2)}</span>
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full"
+                  size="lg"
+                  disabled={isProcessing}
+                >
+                  {isProcessing ? (
+                    'Procesando...'
+                  ) : (
+                    <>
+                      Confirmar Pedido
+                      <CheckCircle className="ml-2 w-4 h-4" />
+                    </>
+                  )}
+                </Button>
+
+                <p className="text-xs text-muted-foreground mt-4 text-center">
+                  Al confirmar tu pedido aceptas nuestros términos y condiciones
+                </p>
+              </div>
+            </motion.div>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
