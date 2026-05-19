@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -26,6 +26,18 @@ export default function MiCuenta() {
     phone: user?.phone || '',
     address: user?.address || '',
   });
+
+  // Sync profileData with user changes
+  useEffect(() => {
+    if (user) {
+      setProfileData({
+        name: user.name || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        address: user.address || '',
+      });
+    }
+  }, [user]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -268,36 +280,36 @@ export default function MiCuenta() {
   }
 
   return (
-    <div className="py-16">
+    <div className="py-8 md:py-16">
       <div className="container mx-auto px-4 max-w-6xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
+          className="mb-6 md:mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
         >
           <div>
-            <h1 className="font-display text-4xl font-bold mb-2">
+            <h1 className="font-display text-3xl md:text-4xl font-bold mb-2">
               Mi Cuenta
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-sm md:text-base text-muted-foreground">
               Bienvenido, <span className="font-medium text-foreground">{user.name}</span>
             </p>
           </div>
-          <Button variant="outline" onClick={logout} className="gap-2">
+          <Button variant="outline" onClick={logout} className="gap-2 text-sm">
             <LogOut className="w-4 h-4" />
             Cerrar Sesión
           </Button>
         </motion.div>
 
         <Tabs defaultValue="profile" className="w-full">
-          <TabsList className="mb-8">
-            <TabsTrigger value="profile" className="gap-2">
+          <TabsList className="mb-6 md:mb-8 w-full md:w-auto">
+            <TabsTrigger value="profile" className="gap-2 flex-1 md:flex-none">
               <User className="w-4 h-4" />
-              Perfil
+              <span className="text-sm md:text-base">Perfil</span>
             </TabsTrigger>
-            <TabsTrigger value="orders" className="gap-2">
+            <TabsTrigger value="orders" className="gap-2 flex-1 md:flex-none">
               <Package className="w-4 h-4" />
-              Mis Pedidos
+              <span className="text-sm md:text-base">Mis Pedidos</span>
             </TabsTrigger>
           </TabsList>
 
@@ -305,26 +317,26 @@ export default function MiCuenta() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-card rounded-xl p-8 shadow-md border border-border"
+              className="bg-card rounded-xl p-4 md:p-8 shadow-md border border-border"
             >
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="font-display text-2xl font-bold">
+              <div className="flex justify-between items-center mb-4 md:mb-6">
+                <h2 className="font-display text-xl md:text-2xl font-bold">
                   Información Personal
                 </h2>
                 {!isEditing && (
                   <Button
                     variant="outline"
                     onClick={() => setIsEditing(true)}
-                    className="gap-2"
+                    className="gap-2 text-sm"
                   >
                     <Edit className="w-4 h-4" />
-                    Editar
+                    <span className="hidden md:inline">Editar</span>
                   </Button>
                 )}
               </div>
 
-              <form onSubmit={handleUpdateProfile} className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-6">
+              <form onSubmit={handleUpdateProfile} className="space-y-4 md:space-y-6">
+                <div className="grid md:grid-cols-2 gap-4 md:gap-6">
                   <div className="space-y-2">
                     <Label htmlFor="profile-name" className="flex items-center gap-2">
                       <User className="w-4 h-4 text-primary" />

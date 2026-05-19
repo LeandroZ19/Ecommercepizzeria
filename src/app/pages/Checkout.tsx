@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
@@ -9,15 +9,24 @@ import { Label } from '../components/ui/label';
 import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group';
 import { CreditCard, Banknote, Truck, Store, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import DistrictSelector, { districts } from '../components/DistrictSelector';
 
 export default function Checkout() {
-  const { items, getTotal, clearCart } = useCart();
+  const { items, getTotal, clearCart, appliedCoupon, getDiscount, getFinalTotal } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user) {
+      toast.error('Debes iniciar sesión para continuar');
+      navigate('/mi-cuenta');
+    }
+  }, [user, navigate]);
 
   const [deliveryType, setDeliveryType] = useState<'delivery' | 'pickup'>('delivery');
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'cash'>('card');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedDistrict, setSelectedDistrict] = useState('');
 
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -30,8 +39,11 @@ export default function Checkout() {
   });
 
   const total = getTotal();
-  const deliveryFee = deliveryType === 'delivery' ? (total > 50 ? 0 : 10) : 0;
-  const finalTotal = total + deliveryFee;
+  const discount = getDiscount();
+  const subtotalAfterDiscount = getFinalTotal();
+  const districtData = districts.find((d) => d.name === selectedDistrict);
+  const deliveryFee = deliveryType === 'delivery' ? (districtData?.deliveryFee || 0) : 0;
+  const finalTotal = subtotalAfterDiscount + deliveryFee;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -59,17 +71,17 @@ export default function Checkout() {
   }
 
   return (
-    <div className="py-16">
+    <div className="py-8 md:py-16">
       <div className="container mx-auto px-4 max-w-6xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
+          className="mb-6 md:mb-8"
         >
-          <h1 className="font-display text-4xl font-bold mb-2">
+          <h1 className="font-display text-3xl md:text-4xl font-bold mb-2">
             Finalizar Pedido
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm md:text-base text-muted-foreground">
             Completa los datos para procesar tu pedido
           </p>
         </motion.div>
@@ -78,55 +90,6 @@ export default function Checkout() {
           <div className="grid lg:grid-cols-3 gap-8">
             {/* Form Section */}
             <div className="lg:col-span-2 space-y-6">
-              {/* Customer Information */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="bg-card rounded-xl p-6 shadow-md border border-border"
-              >
-                <h2 className="font-display text-2xl font-bold mb-6">
-                  Datos del Cliente
-                </h2>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="name">Nombre Completo *</Label>
-                    <Input
-                      id="name"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleInputChange}
-                      required
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="phone">Teléfono *</Label>
-                    <Input
-                      id="phone"
-                      name="phone"
-                      type="tel"
-                      value={formData.phone}
-                      onChange={handleInputChange}
-                      required
-                      className="mt-1"
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <Label htmlFor="email">Email *</Label>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      required
-                      className="mt-1"
-                    />
-                  </div>
-                </div>
-              </motion.div>
-
               {/* Delivery Type */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -149,7 +112,7 @@ export default function Checkout() {
                       <div>
                         <div className="font-medium">Delivery</div>
                         <div className="text-sm text-muted-foreground">
-                          {total > 50 ? '¡Gratis!' : 'S/ 10.00'}
+                          {selectedDistrict ? `S/ ${deliveryFee.toFixed(2)}` : 'Selecciona tu distrito'}
                         </div>
                       </div>
                     </Label>
@@ -167,17 +130,23 @@ export default function Checkout() {
                 </RadioGroup>
 
                 {deliveryType === 'delivery' && (
-                  <div className="mt-4">
-                    <Label htmlFor="address">Dirección de Entrega *</Label>
-                    <Input
-                      id="address"
-                      name="address"
-                      value={formData.address}
-                      onChange={handleInputChange}
-                      required
-                      placeholder="Calle, número, distrito"
-                      className="mt-1"
+                  <div className="mt-4 space-y-4">
+                    <DistrictSelector
+                      selectedDistrict={selectedDistrict}
+                      onDistrictChange={setSelectedDistrict}
                     />
+                    <div>
+                      <Label htmlFor="address">Dirección de Entrega *</Label>
+                      <Input
+                        id="address"
+                        name="address"
+                        value={formData.address}
+                        onChange={handleInputChange}
+                        required
+                        placeholder="Calle, número, referencia"
+                        className="mt-1"
+                      />
+                    </div>
                   </div>
                 )}
               </motion.div>
@@ -289,6 +258,12 @@ export default function Checkout() {
                     <span>Subtotal</span>
                     <span>S/ {total.toFixed(2)}</span>
                   </div>
+                  {appliedCoupon && (
+                    <div className="flex justify-between text-green-600">
+                      <span>Descuento ({appliedCoupon.code})</span>
+                      <span>-S/ {discount.toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-muted-foreground">
                     <span>Delivery</span>
                     <span>

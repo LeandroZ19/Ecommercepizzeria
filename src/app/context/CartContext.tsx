@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { useAuth } from './AuthContext';
 
 export interface Product {
   id: string;
@@ -14,20 +15,60 @@ export interface CartItem extends Product {
   quantity: number;
 }
 
+export interface AppliedCoupon {
+  code: string;
+  discount: number;
+}
+
 interface CartContextType {
   items: CartItem[];
+  appliedCoupon: AppliedCoupon | null;
   addToCart: (product: Product) => void;
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
   getTotal: () => number;
   getItemCount: () => number;
+  applyCoupon: (code: string) => boolean;
+  removeCoupon: () => void;
+  getDiscount: () => number;
+  getFinalTotal: () => number;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
   const [items, setItems] = useState<CartItem[]>([]);
+  const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
+
+  // Load cart from localStorage when user logs in
+  useEffect(() => {
+    if (user) {
+      const savedCart = localStorage.getItem(`cart_${user.id}`);
+      if (savedCart) {
+        try {
+          const parsedCart = JSON.parse(savedCart);
+          setItems(parsedCart);
+        } catch (error) {
+          console.error('Error loading cart from localStorage:', error);
+        }
+      }
+    } else {
+      // Clear cart when user logs out
+      setItems([]);
+      setAppliedCoupon(null);
+    }
+  }, [user]);
+
+  // Save cart to localStorage whenever items change
+  useEffect(() => {
+    if (user && items.length > 0) {
+      localStorage.setItem(`cart_${user.id}`, JSON.stringify(items));
+    } else if (user && items.length === 0) {
+      localStorage.removeItem(`cart_${user.id}`);
+    }
+  }, [items, user]);
 
   const addToCart = (product: Product) => {
     setItems((currentItems) => {
@@ -74,16 +115,54 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return items.reduce((count, item) => count + item.quantity, 0);
   };
 
+  const applyCoupon = (code: string): boolean => {
+    const validCoupons = [
+      { code: 'FAMILIA25', discount: 25 },
+      { code: 'HAPPY20', discount: 20 },
+    ];
+
+    const coupon = validCoupons.find(
+      (c) => c.code.toUpperCase() === code.toUpperCase()
+    );
+
+    if (coupon) {
+      setAppliedCoupon(coupon);
+      return true;
+    }
+    return false;
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+  };
+
+  const getDiscount = () => {
+    if (!appliedCoupon) return 0;
+    const total = getTotal();
+    return (total * appliedCoupon.discount) / 100;
+  };
+
+  const getFinalTotal = () => {
+    const total = getTotal();
+    const discount = getDiscount();
+    return total - discount;
+  };
+
   return (
     <CartContext.Provider
       value={{
         items,
+        appliedCoupon,
         addToCart,
         removeFromCart,
         updateQuantity,
         clearCart,
         getTotal,
         getItemCount,
+        applyCoupon,
+        removeCoupon,
+        getDiscount,
+        getFinalTotal,
       }}
     >
       {children}

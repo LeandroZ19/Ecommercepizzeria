@@ -28,6 +28,10 @@ export default function Layout() {
     { name: "Soporte", path: "/soporte" },
   ];
 
+  const authNavLinks = [
+    { name: "Mis Pedidos", path: "/mi-cuenta", requiresAuth: true },
+  ];
+
   const isActive = (path: string) => {
     return location.pathname === path;
   };
@@ -62,6 +66,29 @@ export default function Layout() {
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
+                >
+                  <Link
+                    to={link.path}
+                    className={`text-sm font-medium transition-all hover:text-accent relative ${
+                      isActive(link.path) ? "text-accent" : ""
+                    }`}
+                  >
+                    {link.name}
+                    {isActive(link.path) && (
+                      <motion.div
+                        layoutId="activeLink"
+                        className="absolute -bottom-1 left-0 right-0 h-0.5 bg-accent"
+                      />
+                    )}
+                  </Link>
+                </motion.div>
+              ))}
+              {user && authNavLinks.map((link, index) => (
+                <motion.div
+                  key={link.path}
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: (navLinks.length + index) * 0.1 }}
                 >
                   <Link
                     to={link.path}
@@ -137,6 +164,18 @@ export default function Layout() {
             >
               <div className="flex flex-col gap-4">
                 {navLinks.map((link) => (
+                  <Link
+                    key={link.path}
+                    to={link.path}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`text-sm font-medium transition-colors hover:text-accent ${
+                      isActive(link.path) ? "text-accent" : ""
+                    }`}
+                  >
+                    {link.name}
+                  </Link>
+                ))}
+                {user && authNavLinks.map((link) => (
                   <Link
                     key={link.path}
                     to={link.path}

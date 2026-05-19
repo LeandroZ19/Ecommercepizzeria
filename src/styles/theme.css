@@ -2,8 +2,8 @@
 
 :root {
   --font-size: 16px;
-  --font-display: 'Libre Baskerville', serif;
-  --font-body: 'Work Sans', sans-serif;
+  --font-display: 'Montserrat', sans-serif;
+  --font-body: 'Inter', sans-serif;
 
   --background: #FAF4ED;
   --foreground: #e25216;

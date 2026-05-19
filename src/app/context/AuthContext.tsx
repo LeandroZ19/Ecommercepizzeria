@@ -33,29 +33,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [orders] = useState<Order[]>([
-    {
-      id: '001',
-      date: '2026-04-10',
-      total: 45.90,
-      status: 'delivered',
-      items: [
-        { name: 'Pizza Margherita (Mediana)', quantity: 1, price: 25.90 },
-        { name: 'Coca Cola 1.5L', quantity: 2, price: 10.00 },
-      ],
-    },
-    {
-      id: '002',
-      date: '2026-04-12',
-      total: 68.50,
-      status: 'confirmed',
-      items: [
-        { name: 'Pizza Pepperoni (Grande)', quantity: 1, price: 35.90 },
-        { name: 'Alitas BBQ', quantity: 1, price: 22.60 },
-        { name: 'Sprite 1.5L', quantity: 1, price: 10.00 },
-      ],
-    },
-  ]);
+  const [orders, setOrders] = useState<Order[]>([]);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     // Mock login - en producción esto llamaría a una API
@@ -67,6 +45,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         phone: '+51 999 888 777',
         address: 'Av. Principal 123, Lima',
       });
+      // Mock orders para usuario demo
+      setOrders([
+        {
+          id: '001',
+          date: '2026-04-10',
+          total: 45.90,
+          status: 'delivered',
+          items: [
+            { name: 'Pizza Margherita (Mediana)', quantity: 1, price: 25.90 },
+            { name: 'Coca Cola 1.5L', quantity: 2, price: 10.00 },
+          ],
+        },
+        {
+          id: '002',
+          date: '2026-04-12',
+          total: 68.50,
+          status: 'confirmed',
+          items: [
+            { name: 'Pizza Pepperoni (Grande)', quantity: 1, price: 35.90 },
+            { name: 'Alitas BBQ', quantity: 1, price: 22.60 },
+            { name: 'Sprite 1.5L', quantity: 1, price: 10.00 },
+          ],
+        },
+      ]);
       return true;
     }
     return false;
@@ -83,6 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setUser(null);
+    setOrders([]);
   };
 
   const updateProfile = (userData: Partial<User>) => {

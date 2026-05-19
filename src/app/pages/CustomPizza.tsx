@@ -91,7 +91,7 @@ export default function CustomPizza() {
   }) => (
     <button
       onClick={onClick}
-      className={`relative p-4 rounded-xl border-2 transition-all text-left ${
+      className={`relative p-3 md:p-4 rounded-xl border-2 transition-all text-left ${
         selected
           ? 'border-primary bg-primary/5'
           : 'border-border hover:border-primary/50'
@@ -147,13 +147,13 @@ export default function CustomPizza() {
   );
 
   return (
-    <div className="py-16">
+    <div className="py-8 md:py-16">
       <div className="container mx-auto px-4 max-w-7xl">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
+          className="mb-6 md:mb-8"
         >
           <Button
             variant="ghost"
@@ -163,10 +163,10 @@ export default function CustomPizza() {
             <ArrowLeft className="w-4 h-4" />
             Volver
           </Button>
-          <h1 className="font-display text-4xl md:text-5xl font-bold mb-4">
+          <h1 className="font-display text-3xl md:text-5xl font-bold mb-3 md:mb-4">
             Crea tu Pizza Personalizada
           </h1>
-          <p className="text-lg text-muted-foreground">
+          <p className="text-base md:text-lg text-muted-foreground">
             Elige cada ingrediente y crea la pizza perfecta para ti
           </p>
         </motion.div>
@@ -179,24 +179,24 @@ export default function CustomPizza() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="bg-card rounded-xl p-6 shadow-md border border-border"
+              className="bg-card rounded-xl p-4 md:p-6 shadow-md border border-border"
             >
-              <h2 className="font-display text-2xl font-bold mb-4">
+              <h2 className="font-display text-xl md:text-2xl font-bold mb-3 md:mb-4">
                 1. Elige el tamaño
               </h2>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-2 md:gap-4">
                 {pizzaSizes.map((size) => (
                   <button
                     key={size.id}
                     onClick={() => setSelectedSize(size.id)}
-                    className={`relative p-4 rounded-xl border-2 transition-all ${
+                    className={`relative p-3 md:p-4 rounded-xl border-2 transition-all ${
                       selectedSize === size.id
                         ? 'border-primary bg-primary/5'
                         : 'border-border hover:border-primary/50'
                     }`}
                   >
                     {selectedSize === size.id && (
-                      <div className="absolute -top-2 -right-2 w-6 h-6 bg-primary rounded-full flex items-center justify-center">
+                      <div className="absolute -top-2 -right-2 w-5 h-5 md:w-6 md:h-6 bg-primary rounded-full flex items-center justify-center">
                         <Check className="w-4 h-4 text-primary-foreground" />
                       </div>
                     )}

@@ -1,15 +1,51 @@
 import { motion } from 'motion/react';
+import { useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { Button } from '../components/ui/button';
-import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from 'lucide-react';
+import { Input } from '../components/ui/input';
+import { Trash2, Plus, Minus, ShoppingBag, ArrowRight, Tag, X } from 'lucide-react';
 import { Link } from 'react-router';
+import { toast } from 'sonner';
 
 export default function Carrito() {
-  const { items, removeFromCart, updateQuantity, getTotal, clearCart } = useCart();
+  const {
+    items,
+    removeFromCart,
+    updateQuantity,
+    getTotal,
+    clearCart,
+    appliedCoupon,
+    applyCoupon,
+    removeCoupon,
+    getDiscount,
+    getFinalTotal
+  } = useCart();
+
+  const [couponCode, setCouponCode] = useState('');
 
   const total = getTotal();
-  const deliveryFee = total > 50 ? 0 : 10;
-  const finalTotal = total + deliveryFee;
+  const discount = getDiscount();
+  const subtotalAfterDiscount = getFinalTotal();
+
+  const handleApplyCoupon = () => {
+    if (!couponCode.trim()) {
+      toast.error('Por favor ingresa un código de cupón');
+      return;
+    }
+
+    const success = applyCoupon(couponCode);
+    if (success) {
+      toast.success('¡Cupón aplicado correctamente!');
+      setCouponCode('');
+    } else {
+      toast.error('Código de cupón inválido');
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    removeCoupon();
+    toast.success('Cupón removido');
+  };
 
   if (items.length === 0) {
     return (
@@ -156,25 +192,19 @@ export default function Carrito() {
                   <span>Subtotal</span>
                   <span>S/ {total.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Delivery</span>
-                  <span>
-                    {deliveryFee === 0 ? (
-                      <span className="text-green-600 font-medium">¡GRATIS!</span>
-                    ) : (
-                      `S/ ${deliveryFee.toFixed(2)}`
-                    )}
-                  </span>
-                </div>
-                {total < 50 && (
-                  <p className="text-xs text-muted-foreground bg-muted p-3 rounded-lg">
-                    💡 Agrega S/ {(50 - total).toFixed(2)} más para delivery gratis
-                  </p>
+                {appliedCoupon && (
+                  <div className="flex justify-between text-green-600">
+                    <span>Descuento ({appliedCoupon.code})</span>
+                    <span>-S/ {discount.toFixed(2)}</span>
+                  </div>
                 )}
                 <div className="border-t border-border pt-3 flex justify-between font-bold text-xl">
-                  <span>Total</span>
-                  <span className="text-primary">S/ {finalTotal.toFixed(2)}</span>
+                  <span>Subtotal</span>
+                  <span className="text-primary">S/ {subtotalAfterDiscount.toFixed(2)}</span>
                 </div>
+                <p className="text-xs text-muted-foreground bg-muted p-3 rounded-lg">
+                  💡 El costo de delivery se calculará según tu distrito en el checkout
+                </p>
               </div>
 
               <Link to="/checkout">
@@ -195,16 +225,44 @@ export default function Carrito() {
                 <label className="block text-sm font-medium mb-2">
                   ¿Tienes un cupón?
                 </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Código de descuento"
-                    className="flex-1 px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-                  />
-                  <Button variant="secondary" size="sm">
-                    Aplicar
-                  </Button>
-                </div>
+                {appliedCoupon ? (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Tag className="w-5 h-5 text-green-600" />
+                        <div>
+                          <p className="font-bold text-green-900">{appliedCoupon.code}</p>
+                          <p className="text-sm text-green-700">{appliedCoupon.discount}% de descuento aplicado</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleRemoveCoupon}
+                        className="text-green-600 hover:bg-green-100 p-2 rounded-lg transition-colors"
+                        aria-label="Remover cupón"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <Input
+                      type="text"
+                      placeholder="Código de descuento"
+                      value={couponCode}
+                      onChange={(e) => setCouponCode(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
+                      className="flex-1"
+                    />
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleApplyCoupon}
+                    >
+                      Aplicar
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>
