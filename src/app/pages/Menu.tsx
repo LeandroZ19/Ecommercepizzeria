@@ -4,21 +4,30 @@ import { Link } from 'react-router';
 import { pizzas, drinks, sides } from '../data/products';
 import { useCart } from '../context/CartContext';
 import { Button } from '../components/ui/button';
-import { Check, Eye } from 'lucide-react';
+import { Input } from '../components/ui/input';
+import { Check, Eye, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 type Category = 'all' | 'pizza' | 'drink' | 'side';
 
 export default function Menu() {
   const [activeCategory, setActiveCategory] = useState<Category>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const { addToCart } = useCart();
 
   const allProducts = [...pizzas, ...drinks, ...sides];
 
-  const filteredProducts =
-    activeCategory === 'all'
-      ? allProducts
-      : allProducts.filter((p) => p.category === activeCategory);
+  let filteredProducts = activeCategory === 'all'
+    ? allProducts
+    : allProducts.filter((p) => p.category === activeCategory);
+
+  // Filtrar por búsqueda
+  if (searchQuery.trim()) {
+    filteredProducts = filteredProducts.filter((p) =>
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.description.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }
 
   const categories = [
     { id: 'all', name: 'Todo', count: allProducts.length },
@@ -50,6 +59,25 @@ export default function Menu() {
             Descubre nuestra selección de pizzas artesanales, bebidas refrescantes
             y deliciosos complementos
           </p>
+        </motion.div>
+
+        {/* Search Bar */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="max-w-xl mx-auto mb-8"
+        >
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Buscar pizzas, bebidas o complementos..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-12 h-12 text-base"
+            />
+          </div>
         </motion.div>
 
         {/* Category Filter */}
@@ -141,9 +169,19 @@ export default function Menu() {
         {/* Empty State */}
         {filteredProducts.length === 0 && (
           <div className="text-center py-20">
-            <p className="text-muted-foreground text-lg">
-              No hay productos en esta categoría
+            <Search className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+            <p className="text-muted-foreground text-lg mb-2">
+              {searchQuery ? 'No encontramos productos que coincidan con tu búsqueda' : 'No hay productos en esta categoría'}
             </p>
+            {searchQuery && (
+              <Button
+                variant="outline"
+                onClick={() => setSearchQuery('')}
+                className="mt-4"
+              >
+                Limpiar búsqueda
+              </Button>
+            )}
           </div>
         )}
 

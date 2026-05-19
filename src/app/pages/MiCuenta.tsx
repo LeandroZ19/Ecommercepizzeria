@@ -6,7 +6,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Badge } from '../components/ui/badge';
-import { User, Package, LogOut, Edit } from 'lucide-react';
+import { User, Package, LogOut, Edit, Mail, Phone, MapPin, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function MiCuenta() {
@@ -31,7 +31,7 @@ export default function MiCuenta() {
     e.preventDefault();
     const success = await login(loginData.email, loginData.password);
     if (success) {
-      toast.success('Sesión iniciada correctamente');
+      toast.success('¡Bienvenido de nuevo!');
     } else {
       toast.error('Credenciales incorrectas');
     }
@@ -45,7 +45,7 @@ export default function MiCuenta() {
       phone: registerData.phone,
     });
     if (success) {
-      toast.success('Cuenta creada correctamente');
+      toast.success('¡Cuenta creada exitosamente!');
     }
   };
 
@@ -76,114 +76,173 @@ export default function MiCuenta() {
 
   if (!user) {
     return (
-      <div className="py-16">
-        <div className="container mx-auto px-4 max-w-4xl">
+      <div className="min-h-screen flex items-center justify-center py-16 bg-gradient-to-br from-muted/30 to-background">
+        <div className="container mx-auto px-4 max-w-5xl">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-8 text-center"
+            className="grid md:grid-cols-2 gap-8 items-center"
           >
-            <h1 className="font-display text-4xl font-bold mb-2">
-              Mi Cuenta
-            </h1>
-            <p className="text-muted-foreground">
-              Inicia sesión o crea una cuenta para continuar
-            </p>
-          </motion.div>
+            {/* Left Side - Branding */}
+            <div className="hidden md:block">
+              <motion.div
+                initial={{ opacity: 0, x: -50 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                <h1 className="font-display text-5xl font-bold mb-6">
+                  ¡Bienvenido a<br />RapiPizza!
+                </h1>
+                <p className="text-lg text-muted-foreground mb-8">
+                  Crea tu cuenta o inicia sesión para disfrutar de:
+                </p>
+                <ul className="space-y-4">
+                  {[
+                    'Pedidos más rápidos y seguros',
+                    'Historial de tus compras',
+                    'Direcciones guardadas',
+                    'Ofertas exclusivas',
+                  ].map((item, index) => (
+                    <motion.li
+                      key={index}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.3 + index * 0.1 }}
+                      className="flex items-center gap-3"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        <div className="w-2 h-2 rounded-full bg-primary" />
+                      </div>
+                      <span className="text-muted-foreground">{item}</span>
+                    </motion.li>
+                  ))}
+                </ul>
+              </motion.div>
+            </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-          >
-            <Tabs defaultValue="login" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-8">
-                <TabsTrigger value="login">Iniciar Sesión</TabsTrigger>
-                <TabsTrigger value="register">Registrarse</TabsTrigger>
-              </TabsList>
+            {/* Right Side - Forms */}
+            <motion.div
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1 }}
+              className="bg-card rounded-2xl shadow-2xl border border-border overflow-hidden"
+            >
+              <Tabs defaultValue="login" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 rounded-none border-b">
+                  <TabsTrigger value="login" className="rounded-none data-[state=active]:bg-background">
+                    Iniciar Sesión
+                  </TabsTrigger>
+                  <TabsTrigger value="register" className="rounded-none data-[state=active]:bg-background">
+                    Registrarse
+                  </TabsTrigger>
+                </TabsList>
 
-              <TabsContent value="login">
-                <div className="bg-card rounded-xl p-8 shadow-md border border-border">
-                  <form onSubmit={handleLogin} className="space-y-4">
-                    <div>
-                      <Label htmlFor="login-email">Email</Label>
+                <TabsContent value="login" className="p-8">
+                  <form onSubmit={handleLogin} className="space-y-5">
+                    <div className="space-y-2">
+                      <Label htmlFor="login-email" className="flex items-center gap-2">
+                        <Mail className="w-4 h-4 text-primary" />
+                        Email
+                      </Label>
                       <Input
                         id="login-email"
                         type="email"
+                        placeholder="tu@email.com"
                         value={loginData.email}
                         onChange={(e) =>
                           setLoginData({ ...loginData, email: e.target.value })
                         }
                         required
-                        className="mt-1"
+                        className="h-12"
                       />
                     </div>
-                    <div>
-                      <Label htmlFor="login-password">Contraseña</Label>
+                    <div className="space-y-2">
+                      <Label htmlFor="login-password" className="flex items-center gap-2">
+                        <Lock className="w-4 h-4 text-primary" />
+                        Contraseña
+                      </Label>
                       <Input
                         id="login-password"
                         type="password"
+                        placeholder="••••••••"
                         value={loginData.password}
                         onChange={(e) =>
                           setLoginData({ ...loginData, password: e.target.value })
                         }
                         required
-                        className="mt-1"
+                        className="h-12"
                       />
                     </div>
-                    <Button type="submit" className="w-full" size="lg">
+                    <Button type="submit" className="w-full h-12" size="lg">
                       Iniciar Sesión
                     </Button>
+                    <p className="text-sm text-center text-muted-foreground">
+                      Usa cualquier email y contraseña para acceder
+                    </p>
                   </form>
-                </div>
-              </TabsContent>
+                </TabsContent>
 
-              <TabsContent value="register">
-                <div className="bg-card rounded-xl p-8 shadow-md border border-border">
-                  <form onSubmit={handleRegister} className="space-y-4">
-                    <div>
-                      <Label htmlFor="register-name">Nombre Completo</Label>
+                <TabsContent value="register" className="p-8">
+                  <form onSubmit={handleRegister} className="space-y-5">
+                    <div className="space-y-2">
+                      <Label htmlFor="register-name" className="flex items-center gap-2">
+                        <User className="w-4 h-4 text-primary" />
+                        Nombre Completo
+                      </Label>
                       <Input
                         id="register-name"
+                        placeholder="Juan Pérez"
                         value={registerData.name}
                         onChange={(e) =>
                           setRegisterData({ ...registerData, name: e.target.value })
                         }
                         required
-                        className="mt-1"
+                        className="h-12"
                       />
                     </div>
-                    <div>
-                      <Label htmlFor="register-email">Email</Label>
+                    <div className="space-y-2">
+                      <Label htmlFor="register-email" className="flex items-center gap-2">
+                        <Mail className="w-4 h-4 text-primary" />
+                        Email
+                      </Label>
                       <Input
                         id="register-email"
                         type="email"
+                        placeholder="tu@email.com"
                         value={registerData.email}
                         onChange={(e) =>
                           setRegisterData({ ...registerData, email: e.target.value })
                         }
                         required
-                        className="mt-1"
+                        className="h-12"
                       />
                     </div>
-                    <div>
-                      <Label htmlFor="register-phone">Teléfono</Label>
+                    <div className="space-y-2">
+                      <Label htmlFor="register-phone" className="flex items-center gap-2">
+                        <Phone className="w-4 h-4 text-primary" />
+                        Teléfono
+                      </Label>
                       <Input
                         id="register-phone"
                         type="tel"
+                        placeholder="+51 999 888 777"
                         value={registerData.phone}
                         onChange={(e) =>
                           setRegisterData({ ...registerData, phone: e.target.value })
                         }
                         required
-                        className="mt-1"
+                        className="h-12"
                       />
                     </div>
-                    <div>
-                      <Label htmlFor="register-password">Contraseña</Label>
+                    <div className="space-y-2">
+                      <Label htmlFor="register-password" className="flex items-center gap-2">
+                        <Lock className="w-4 h-4 text-primary" />
+                        Contraseña
+                      </Label>
                       <Input
                         id="register-password"
                         type="password"
+                        placeholder="••••••••"
                         value={registerData.password}
                         onChange={(e) =>
                           setRegisterData({
@@ -192,16 +251,16 @@ export default function MiCuenta() {
                           })
                         }
                         required
-                        className="mt-1"
+                        className="h-12"
                       />
                     </div>
-                    <Button type="submit" className="w-full" size="lg">
+                    <Button type="submit" className="w-full h-12" size="lg">
                       Crear Cuenta
                     </Button>
                   </form>
-                </div>
-              </TabsContent>
-            </Tabs>
+                </TabsContent>
+              </Tabs>
+            </motion.div>
           </motion.div>
         </div>
       </div>
@@ -214,30 +273,30 @@ export default function MiCuenta() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8 flex justify-between items-center"
+          className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
         >
           <div>
             <h1 className="font-display text-4xl font-bold mb-2">
               Mi Cuenta
             </h1>
             <p className="text-muted-foreground">
-              Bienvenido, {user.name}
+              Bienvenido, <span className="font-medium text-foreground">{user.name}</span>
             </p>
           </div>
-          <Button variant="outline" onClick={logout}>
-            <LogOut className="w-4 h-4 mr-2" />
+          <Button variant="outline" onClick={logout} className="gap-2">
+            <LogOut className="w-4 h-4" />
             Cerrar Sesión
           </Button>
         </motion.div>
 
         <Tabs defaultValue="profile" className="w-full">
           <TabsList className="mb-8">
-            <TabsTrigger value="profile">
-              <User className="w-4 h-4 mr-2" />
+            <TabsTrigger value="profile" className="gap-2">
+              <User className="w-4 h-4" />
               Perfil
             </TabsTrigger>
-            <TabsTrigger value="orders">
-              <Package className="w-4 h-4 mr-2" />
+            <TabsTrigger value="orders" className="gap-2">
+              <Package className="w-4 h-4" />
               Mis Pedidos
             </TabsTrigger>
           </TabsList>
@@ -256,17 +315,21 @@ export default function MiCuenta() {
                   <Button
                     variant="outline"
                     onClick={() => setIsEditing(true)}
+                    className="gap-2"
                   >
-                    <Edit className="w-4 h-4 mr-2" />
+                    <Edit className="w-4 h-4" />
                     Editar
                   </Button>
                 )}
               </div>
 
-              <form onSubmit={handleUpdateProfile} className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="profile-name">Nombre Completo</Label>
+              <form onSubmit={handleUpdateProfile} className="space-y-6">
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="profile-name" className="flex items-center gap-2">
+                      <User className="w-4 h-4 text-primary" />
+                      Nombre Completo
+                    </Label>
                     <Input
                       id="profile-name"
                       value={profileData.name}
@@ -274,11 +337,14 @@ export default function MiCuenta() {
                         setProfileData({ ...profileData, name: e.target.value })
                       }
                       disabled={!isEditing}
-                      className="mt-1"
+                      className="h-11"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="profile-phone">Teléfono</Label>
+                  <div className="space-y-2">
+                    <Label htmlFor="profile-phone" className="flex items-center gap-2">
+                      <Phone className="w-4 h-4 text-primary" />
+                      Teléfono
+                    </Label>
                     <Input
                       id="profile-phone"
                       value={profileData.phone}
@@ -286,11 +352,14 @@ export default function MiCuenta() {
                         setProfileData({ ...profileData, phone: e.target.value })
                       }
                       disabled={!isEditing}
-                      className="mt-1"
+                      className="h-11"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="profile-email">Email</Label>
+                  <div className="space-y-2">
+                    <Label htmlFor="profile-email" className="flex items-center gap-2">
+                      <Mail className="w-4 h-4 text-primary" />
+                      Email
+                    </Label>
                     <Input
                       id="profile-email"
                       type="email"
@@ -299,11 +368,14 @@ export default function MiCuenta() {
                         setProfileData({ ...profileData, email: e.target.value })
                       }
                       disabled={!isEditing}
-                      className="mt-1"
+                      className="h-11"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="profile-address">Dirección</Label>
+                  <div className="space-y-2">
+                    <Label htmlFor="profile-address" className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-primary" />
+                      Dirección
+                    </Label>
                     <Input
                       id="profile-address"
                       value={profileData.address}
@@ -311,7 +383,7 @@ export default function MiCuenta() {
                         setProfileData({ ...profileData, address: e.target.value })
                       }
                       disabled={!isEditing}
-                      className="mt-1"
+                      className="h-11"
                     />
                   </div>
                 </div>
