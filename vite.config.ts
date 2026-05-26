@@ -31,6 +31,22 @@ export default defineConfig({
     },
   },
 
+  css: {
+    postcss: {
+      plugins: [
+        {
+          postcssPlugin: 'remove-charset',
+          Once(root) {
+            root.walkAtRules('charset', (rule) => {
+              rule.remove();
+            });
+          },
+        },
+      ],
+    },
+  },
+
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
+
 })

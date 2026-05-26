@@ -1,25 +1,25 @@
 import { motion } from 'motion/react';
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { pizzas, drinks, sides } from '../data/products';
+import { pizzas, combos, drinks, sides, type ProductCategory } from '../data/products';
 import { useCart } from '../context/CartContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Check, Eye, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
-type Category = 'all' | 'pizza' | 'drink' | 'side';
+type Category = 'all' | ProductCategory;
 
 export default function Menu() {
   const [activeCategory, setActiveCategory] = useState<Category>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const { addToCart } = useCart();
 
-  const allProducts = [...pizzas, ...drinks, ...sides];
+  const allProducts = [...pizzas, ...combos, ...drinks, ...sides];
 
   let filteredProducts = activeCategory === 'all'
     ? allProducts
-    : allProducts.filter((p) => p.category === activeCategory);
+    : allProducts.filter((p) => p.subcategory === activeCategory);
 
   // Filtrar por búsqueda
   if (searchQuery.trim()) {
@@ -31,7 +31,9 @@ export default function Menu() {
 
   const categories = [
     { id: 'all', name: 'Todo', count: allProducts.length },
-    { id: 'pizza', name: 'Pizzas', count: pizzas.length },
+    { id: 'pizza-clasica', name: 'Pizzas Clásicas', count: pizzas.filter(p => p.subcategory === 'pizza-clasica').length },
+    { id: 'pizza-especial', name: 'Pizzas Especiales', count: pizzas.filter(p => p.subcategory === 'pizza-especial').length },
+    { id: 'combo', name: 'Combos', count: combos.length },
     { id: 'drink', name: 'Bebidas', count: drinks.length },
     { id: 'side', name: 'Complementos', count: sides.length },
   ];

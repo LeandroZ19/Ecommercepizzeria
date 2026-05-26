@@ -222,12 +222,6 @@ export default function Contacto() {
                 <div className="rounded-xl overflow-hidden shadow-lg border border-border h-80 bg-muted">
                   <iframe
                     src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3900.5684422567942!2d-76.9495204!3d-12.141652599999999!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x9105b9fa67dda3fd%3A0x3992178ecca8f2ce!2srappi%20pizza!5e0!3m2!1ses-419!2spe!4v1776186857898!5m2!1ses-419!2spe"
-                    width="600"
-                    height="450"
-                    style="border:0;"
-                    allowfullscreen=""
-                    loading="lazy"
-                    referrerpolicy="no-referrer-when-downgradehttps://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3900.5684422567942!2d-76.9495204!3d-12.141652599999999!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x9105b9fa67dda3fd%3A0x3992178ecca8f2ce!2srappi%20pizza!5e0!3m2!1ses-419!2spe!4v1776186857898!5m2!1ses-419!2spe"
                     width="100%"
                     height="100%"
                     style={{ border: 0 }}

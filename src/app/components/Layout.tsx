@@ -10,6 +10,7 @@ import {
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useState } from "react";
+import AccessibilityWidget from "./AccessibilityWidget";
 
 export default function Layout() {
   const { getItemCount } = useCart();
@@ -205,6 +206,8 @@ export default function Layout() {
       <main className="flex-1">
         <Outlet />
       </main>
+
+      <AccessibilityWidget />
 
       {/* Footer */}
       <footer className="bg-primary text-primary-foreground mt-auto bg-[#e25216]">

@@ -7,6 +7,7 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { ArrowLeft, Check, Info, Flame } from 'lucide-react';
 import { toast } from 'sonner';
+import ImageMagnifier from '../components/ImageMagnifier';
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -74,10 +75,12 @@ export default function ProductDetail() {
             className="space-y-4"
           >
             <div className="relative rounded-2xl overflow-hidden shadow-2xl aspect-square">
-              <img
+              <ImageMagnifier
                 src={product.image}
                 alt={product.name}
-                className="w-full h-full object-cover"
+                zoom={2.5}
+                lensSize={120}
+                className="w-full h-full"
               />
             </div>
 
