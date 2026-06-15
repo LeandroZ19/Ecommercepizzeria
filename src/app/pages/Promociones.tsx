@@ -1,3 +1,15 @@
+/**
+ * Promociones — Listado de ofertas vigentes y cupones de descuento.
+ *
+ * Organiza las promociones en pestañas:
+ * - Ofertas del día
+ * - Combos especiales
+ * - Códigos de cupón
+ *
+ * Incluye temporizador de cuenta regresiva para ofertas con tiempo limitado.
+ * Responsivo con grid adaptable y tabs de scroll horizontal en móvil.
+ */
+
 import { motion } from "motion/react";
 import { promotions } from "../data/products";
 import { Button } from "../components/ui/button";

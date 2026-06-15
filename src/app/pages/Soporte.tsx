@@ -1,3 +1,14 @@
+/**
+ * Soporte — Centro de ayuda con preguntas frecuentes y políticas.
+ *
+ * Organiza el contenido en tres pestañas:
+ * - Preguntas frecuentes (acordeón)
+ * - Términos y condiciones
+ * - Política de privacidad
+ *
+ * Responsivo con tabs de scroll horizontal en móvil.
+ */
+
 import { motion } from 'motion/react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../components/ui/accordion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
@@ -60,7 +71,7 @@ export default function Soporte() {
       </section>
 
       {/* Main Content */}
-      <section className="py-16 bg-background">
+      <section className="py-8 md:py-16 bg-background">
         <div className="container mx-auto px-4 max-w-4xl">
           <Tabs defaultValue="faq" className="w-full">
             <TabsList className="grid w-full grid-cols-3 mb-8">

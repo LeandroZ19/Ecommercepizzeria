@@ -1,8 +1,27 @@
+/**
+ * Checkout — Página de finalización de pedido.
+ *
+ * Requiere sesión activa (redirige a /mi-cuenta si no hay usuario).
+ * Flujo:
+ *  1. Seleccionar tipo de entrega (delivery / recoger en tienda)
+ *  2. Seleccionar distrito (con costo de delivery diferenciado)
+ *  3. Completar datos personales y dirección
+ *  4. Elegir método de pago (tarjeta / efectivo)
+ *  5. Confirmar pedido
+ *
+ * Usa CartContext para totales y AuthContext para datos del usuario.
+ * Responsivo: columna única en móvil, layout de 3 columnas en desktop.
+ */
+
 import { motion } from 'motion/react';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../../../utils/supabase/client';
+import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+
+const API = `https://${projectId}.supabase.co/functions/v1/make-server-8a4cb832`;
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -51,10 +70,43 @@ export default function Checkout() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     setIsProcessing(true);
 
-    // Simulate processing
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    try {
+      // Obtener el token de la sesión actual para autenticar con el servidor
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token ?? publicAnonKey;
+
+      // Guardar pedido en el KV store vía el servidor Hono
+      await fetch(`${API}/orders`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          items: items.map(item => ({
+            id:       item.id,
+            name:     item.name,
+            image:    item.image,
+            price:    item.price,
+            quantity: item.quantity,
+          })),
+          total:          finalTotal,
+          deliveryFee:    deliveryFee,
+          district:       selectedDistrict || '',
+          deliveryType:   deliveryType,
+          paymentMethod:  paymentMethod,
+          address:        formData.address || '',
+          couponCode:     appliedCoupon?.code ?? null,
+          discount:       discount,
+        }),
+      });
+    } catch (err) {
+      console.error('Error saving order to server:', err);
+      // Continuar aunque falle (no bloquear al usuario)
+    }
 
     toast.success('¡Pedido realizado con éxito!', {
       icon: <CheckCircle className="w-4 h-4" />,

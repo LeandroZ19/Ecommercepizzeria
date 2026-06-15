@@ -1,3 +1,17 @@
+/**
+ * ProductDetail — Página de detalle de producto.
+ *
+ * Muestra la información completa de una pizza:
+ * - Galería de imágenes con magnificador al estilo Amazon
+ * - Selección de tamaño con precios dinámicos
+ * - Lista de ingredientes y alérgenos
+ * - Información nutricional
+ * - Botón de agregar al carrito
+ *
+ * Usa el ID del producto desde los parámetros de la URL (/producto/:id).
+ * Responsivo: columna única en móvil, dos columnas en desktop.
+ */
+
 import { motion } from 'motion/react';
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router';
@@ -49,7 +63,7 @@ export default function ProductDetail() {
   };
 
   return (
-    <div className="py-16">
+    <div className="py-8 md:py-16">
       <div className="container mx-auto px-4 max-w-6xl">
         {/* Back Button */}
         <motion.div

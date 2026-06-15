@@ -1,254 +1,457 @@
+/**
+ * products.ts — Catálogo completo de productos de RapiPizza.
+ *
+ * Estructura de secciones (según menú real):
+ * - Combo Rapilover      (4 combos)
+ * - Promo Ame y Peppe    (2 pizzas)
+ * - Promo Rapilover      (4 promos)
+ * - Pizza Personal       (1 producto)
+ * - Pizza Doble          (1 producto)
+ * - Combos 6 Porciones   (6 combos)
+ * - Promos 8 Porciones   (7 promos)
+ * - Promos Extremas      (2 promos)
+ * - Complementos         (3 productos)
+ *
+ * También exporta: popularPizzas, familyCombos (usados en la Home),
+ * promotions (usados en la página de Promociones).
+ */
+
 import { Product } from '../context/CartContext';
 
-export type ProductCategory = 'pizza-clasica' | 'pizza-especial' | 'combo' | 'drink' | 'side';
+// ─── Tipos ────────────────────────────────────────────────────────────────────
+
+export type ProductCategory =
+  | 'combo-rapilover'
+  | 'promo-ame-peppe'
+  | 'promo-rapilover'
+  | 'pizza-personal'
+  | 'pizza-doble'
+  | 'combo-6'
+  | 'promo-8'
+  | 'promo-extrema'
+  | 'complemento';
 
 export interface ExtendedProduct extends Product {
+  /** Sección del menú a la que pertenece */
   subcategory?: ProductCategory;
+  /** Si aparece en el carrusel de populares de la Home */
   popular?: boolean;
+  /**
+   * ID del producto en productsDetailed.ts para mostrar la página de detalles.
+   * Si está presente, el botón "Ver Detalles" apuntará a /producto/:detailId
+   */
+  detailId?: string;
 }
 
-export const pizzas: ExtendedProduct[] = [
-  // Pizzas Clásicas
+// ─── Imágenes reales de Rappi ─────────────────────────────────────────────────
+// URLs oficiales del menú de RapiPizza en Rappi
+
+const R = 'https://images.rappi.pe/products/';
+const IMG = {
+  // Combo Rapilover
+  comboRapilover:          `${R}c0e14f36-76b2-4d70-a8eb-ea0583db26bd.png?d=600x600&e=webp`,
+  comboPizzaDoble:         `${R}9107faff-6bb2-4202-885f-540d023a040e-1747002097125.png?d=600x600&e=webp`,
+  comboCompartir:          `${R}42cf7930-4656-42f5-b286-7dd8030d1396-1747001856436.png?d=600x600&e=webp`,
+  combo4u:                 `${R}bf521e04-7f16-4fb4-b7d3-fb382f6d580e.png?d=600x600&e=webp`,
+  // Promo Ame y Peppe
+  pizzaAmericana:          `${R}832b8fba-9420-4567-937a-1b94cc879441-1747724658545.png?d=600x600&e=webp`,
+  pizzaPepperoni:          `${R}1560b4e5-3468-4b31-804b-9657b4aa3d72-1747724630621.png?d=600x600&e=webp`,
+  // Promo Rapilover
+  promoFamiliar:           `${R}ab9a63fc-b0ba-4381-8e9b-e0a4da83baf8-1747002789734.png?d=600x600&e=webp`,
+  promoTriClasico:         `${R}50133948-3489-4415-ae60-4301ba3911d2.png?d=600x600&e=webp`,
+  promoFamiliarX2:         `${R}370006fd-a9e2-4bd9-bced-0ce573a8d081.png?d=600x600&e=webp`,
+  promoTridenteSupremo:    `${R}3a83e773-e011-4f2f-8366-d8c2f1f27c80.png?d=600x600&e=webp`,
+  // Pizza Personal y Doble
+  pizzaPersonal:           `${R}320841f3-8f3a-4e6b-8c74-e6d0ee336e74-1749449497711.png?d=600x600&e=webp`,
+  pizzaDoble:              `${R}f49eb908-16a7-4553-af0a-1b0df3981ee7.png?d=600x600&e=webp`,
+  // Combos 6 Porciones
+  combo6_1:                `${R}984d9bdb-b433-4821-b832-9073292e1e85-1747002692474.png?d=600x600&e=webp`,
+  combo6_2:                `${R}1933ab84-ab18-47d8-823d-a6d5fab2cf43-1747006638560.png?d=600x600&e=webp`,
+  combo6_3:                `${R}9107faff-6bb2-4202-885f-540d023a040e-1747002097125.png?d=600x600&e=webp`,
+  combo6_4:                `${R}42cf7930-4656-42f5-b286-7dd8030d1396-1747001856436.png?d=600x600&e=webp`,
+  combo6_5:                `${R}ec21b73d-1183-4a2f-ae4d-0f39700cb60d-1747002490408.png?d=600x600&e=webp`,
+  combo6_6:                `${R}d401dbdc-fc1f-4582-a36c-d8cefca6803e-1747002433139.png?d=600x600&e=webp`,
+  // Promos 8 Porciones
+  promo8_1:                `${R}ab9a63fc-b0ba-4381-8e9b-e0a4da83baf8-1747002789734.png?d=600x600&e=webp`,
+  promo8_2:                `${R}a440c439-c1d4-496f-8d12-4605a974dd7b-1747002914032.png?d=600x600&e=webp`,
+  promo8_3:                `${R}e9949501-c241-4431-97ba-a5a349204cbc-1747002964338.png?d=600x600&e=webp`,
+  promo8_4:                `${R}d9352c4f-5f86-4cf8-b852-bd3563bcca4e-1747003044407.png?d=600x600&e=webp`,
+  promo8_5:                `${R}49756c04-9df9-418b-8376-423416b4eb0c-1747003074329.png?d=600x600&e=webp`,
+  promo8_6:                `${R}a83dc137-75f9-4ce8-a3fb-8dbf29b90f35-1747003109877.png?d=600x600&e=webp`,
+  promo8_7:                `${R}625b75c5-d5e7-40cb-b61e-d23cad5a7a7c-1747003183340.png?d=600x600&e=webp`,
+  // Promos Extremas
+  extreme1:                `${R}862a7e98-31ad-4e30-9664-9f2b2eb233bc.jpeg?d=600x600&e=webp`,
+  extreme2:                `${R}b85a3f6a-395b-469f-93e3-94988b511545.jpeg?d=600x600&e=webp`,
+  // Complementos
+  panAjoTrad:              `${R}gp_sides_otra_pan_al_ajo_n.png?d=600x600&e=webp`,
+  panAjoEsp:               `${R}f72ad1e4-adf7-4ae9-b50e-d1353ffa018b.jpeg?d=600x600&e=webp`,
+  crema:                   `${R}792a436e-8dc1-422f-87c5-d5abfc8e7b3c-1749448057134.png?d=600x600&e=webp`,
+};
+
+// ─── Combo Rapilover ──────────────────────────────────────────────────────────
+
+export const comboRapilover: ExtendedProduct[] = [
   {
-    id: 'pizza-1',
-    name: 'Margherita',
-    description: 'Salsa de tomate, mozzarella fresca, albahaca y aceite de oliva',
+    id: 'rapilover-1',
+    name: 'Combo Rapilover',
+    description: 'Pizza americana grande con pan al ajo (4 panecillos) y Pepsi 1lt',
+    price: 41.90,
+    image: IMG.comboRapilover,
+    category: 'pizza',
+    subcategory: 'combo-rapilover',
+    popular: true,
+  },
+  {
+    id: 'rapilover-2',
+    name: 'Combo Pizza Doble',
+    description: 'Dos pizzas grandes cualquier sabor y Pepsi 1lt',
+    price: 56.90,
+    image: IMG.comboPizzaDoble,
+    category: 'pizza',
+    subcategory: 'combo-rapilover',
+    popular: true,
+  },
+  {
+    id: 'rapilover-3',
+    name: 'Combo Rapilover para Compartir',
+    description: 'Combo de 3 pizzas grandes: americana o pepperoni, acompañado de una Pepsi de 1 litro',
+    price: 70.90,
+    image: IMG.comboCompartir,
+    category: 'pizza',
+    subcategory: 'combo-rapilover',
+    popular: true,
+  },
+  {
+    id: 'rapilover-4',
+    name: 'Combo Rapilover 4U Para Ti',
+    description: '4 Pizzas grandes cualquier sabor y Pepsi 1lt',
+    price: 98.90,
+    image: IMG.combo4u,
+    category: 'pizza',
+    subcategory: 'combo-rapilover',
+  },
+];
+
+// ─── Promo Ame y Peppe ────────────────────────────────────────────────────────
+
+export const promoAmePeppe: ExtendedProduct[] = [
+  {
+    id: 'ame-peppe-1',
+    name: 'Pizza Americana',
+    description: 'Pizza americana con masa artesanal, queso mozzarella y jamón',
     price: 25.90,
-    image: 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=600&h=400&fit=crop',
+    image: IMG.pizzaAmericana,
     category: 'pizza',
-    subcategory: 'pizza-clasica',
-    size: 'medium',
+    subcategory: 'promo-ame-peppe',
     popular: true,
+    detailId: 'pizza-americana',
   },
   {
-    id: 'pizza-2',
-    name: 'Pepperoni',
-    description: 'Salsa de tomate, mozzarella y generoso pepperoni',
-    price: 28.90,
-    image: 'https://images.unsplash.com/photo-1628840042765-356cda07504e?w=600&h=400&fit=crop',
+    id: 'ame-peppe-2',
+    name: 'Pizza Pepperoni',
+    description: 'Pizza con queso mozzarella y pepperoni sobre masa tradicional',
+    price: 25.90,
+    image: IMG.pizzaPepperoni,
     category: 'pizza',
-    subcategory: 'pizza-clasica',
-    size: 'medium',
+    subcategory: 'promo-ame-peppe',
     popular: true,
-  },
-  {
-    id: 'pizza-3',
-    name: 'Quattro Formaggi',
-    description: 'Mozzarella, gorgonzola, parmesano y queso de cabra',
-    price: 32.90,
-    image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&h=400&fit=crop',
-    category: 'pizza',
-    subcategory: 'pizza-clasica',
-    size: 'medium',
-    popular: true,
-  },
-  {
-    id: 'pizza-4',
-    name: 'Hawaiana',
-    description: 'Salsa de tomate, mozzarella, jamón y piña',
-    price: 27.90,
-    image: 'https://www.hola.com/horizon/landscape/a17cd68660e0-pizza-hawaiana-t.jpg?im=Resize=(960),type=downsize',
-    category: 'pizza',
-    subcategory: 'pizza-clasica',
-    size: 'medium',
-    popular: true,
-  },
-
-  // Pizzas Especiales
-  {
-    id: 'pizza-5',
-    name: 'Prosciutto e Rucola',
-    description: 'Mozzarella, prosciutto, rúcula fresca y parmesano',
-    price: 38.90,
-    image: 'https://images.unsplash.com/photo-1595854341625-f33ee10dbf94?w=600&h=400&fit=crop',
-    category: 'pizza',
-    subcategory: 'pizza-especial',
-    size: 'medium',
-    popular: true,
-  },
-  {
-    id: 'pizza-6',
-    name: 'Diavola',
-    description: 'Salsa picante, mozzarella, salami picante y chile',
-    price: 34.90,
-    image: 'https://www.carolynscooking.com/wp-content/uploads/2024/02/Pizza-Diavola-7.jpg',
-    category: 'pizza',
-    subcategory: 'pizza-especial',
-    size: 'medium',
-  },
-  {
-    id: 'pizza-7',
-    name: 'Trufa Negra',
-    description: 'Crema de trufa, mozzarella, champiñones y aceite de trufa',
-    price: 45.90,
-    image: 'https://images.unsplash.com/photo-1593560708920-61dd98c46a4e?w=600&h=400&fit=crop',
-    category: 'pizza',
-    subcategory: 'pizza-especial',
-    size: 'medium',
-  },
-  {
-    id: 'pizza-8',
-    name: 'Vegetariana Suprema',
-    description: 'Pimientos, champiñones, aceitunas, cebolla, tomate y albahaca',
-    price: 30.90,
-    image: 'https://images.unsplash.com/photo-1511689660979-10d2b1aada49?w=600&h=400&fit=crop',
-    category: 'pizza',
-    subcategory: 'pizza-especial',
-    size: 'medium',
+    detailId: 'pizza-pepperoni-detail',
   },
 ];
 
-export const combos: ExtendedProduct[] = [
+// ─── Promo Rapilover ──────────────────────────────────────────────────────────
+
+export const promoRapilover: ExtendedProduct[] = [
   {
-    id: 'combo-1',
-    name: 'Combo Familiar Clásico',
-    description: '2 Pizzas medianas clásicas + 2 Bebidas 1.5L + Pan de Ajo',
-    price: 75.00,
-    image: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600&h=400&fit=crop',
+    id: 'promo-rap-1',
+    name: 'Promo Rapilover Familiar',
+    description: 'Pizza americana familiar con pan al ajo (8 panecillos) con Inca Kola o Coca Cola 1.5lt',
+    price: 52.90,
+    image: IMG.promoFamiliar,
     category: 'pizza',
-    subcategory: 'combo',
+    subcategory: 'promo-rapilover',
     popular: true,
   },
   {
-    id: 'combo-2',
-    name: 'Combo Pareja',
-    description: '1 Pizza mediana + 2 Bebidas + 1 Complemento',
-    price: 45.00,
-    image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&h=400&fit=crop',
+    id: 'promo-rap-2',
+    name: 'Promo Rapilover Tri Clásico',
+    description: '3 Pizzas familiares clásicas con pepperoni y jamón',
+    price: 79.90,
+    image: IMG.promoTriClasico,
     category: 'pizza',
-    subcategory: 'combo',
+    subcategory: 'promo-rapilover',
   },
   {
-    id: 'combo-3',
-    name: 'Combo Party',
-    description: '3 Pizzas grandes + 3 Bebidas 1.5L + Alitas BBQ + Pan de Ajo',
-    price: 135.00,
-    image: 'https://images.unsplash.com/photo-1571997478779-2adcbbe9ab2f?w=600&h=400&fit=crop',
+    id: 'promo-rap-3',
+    name: 'Promo Rapilover Familiar x2',
+    description: '2 Pizzas familiares (cualquier sabor) con pan al ajo (8 panecillos) con Inca Kola o Coca Cola 1.5lt',
+    price: 84.90,
+    image: IMG.promoFamiliarX2,
     category: 'pizza',
-    subcategory: 'combo',
-    popular: true,
+    subcategory: 'promo-rapilover',
   },
   {
-    id: 'combo-4',
-    name: 'Combo Personal',
-    description: '1 Pizza personal + 1 Bebida + Ensalada',
-    price: 32.00,
-    image: 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=600&h=400&fit=crop',
+    id: 'promo-rap-4',
+    name: 'Promo Tridente Supremo',
+    description: '3 Pizzas familiares cualquier sabor con Inca Kola o Coca Cola 1.5lt',
+    price: 95.90,
+    image: IMG.promoTridenteSupremo,
     category: 'pizza',
-    subcategory: 'combo',
+    subcategory: 'promo-rapilover',
   },
 ];
 
-export const drinks: ExtendedProduct[] = [
+// ─── Pizza Personal ───────────────────────────────────────────────────────────
+
+export const pizzaPersonal: ExtendedProduct[] = [
   {
-    id: 'drink-1',
-    name: 'Coca Cola 1.5L',
-    description: 'Bebida gaseosa clásica',
-    price: 10.00,
-    image: 'https://grupochios.com/wp-content/uploads/2022/02/coca-cola.jpg',
-    category: 'drink',
-    subcategory: 'drink',
-    subcategory: 'drink',
-  },
-  {
-    id: 'drink-2',
-    name: 'Sprite 1.5L',
-    description: 'Bebida gaseosa de lima-limón',
-    price: 10.00,
-    image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTsXMILQ5XPv2uRNNm6zjmR_8lbWIieKfaG7A&s',
-    category: 'drink',
-    subcategory: 'drink',
-  },
-  {
-    id: 'drink-3',
-    name: 'Fanta 1.5L',
-    description: 'Bebida gaseosa sabor naranja',
-    price: 10.00,
-    image: 'https://thumbs.dreamstime.com/b/gomel-bielorrusia-febrero-de-bebida-de-fanta-en-una-botella-pl%C3%A1stica-en-un-fondo-negro-86222570.jpg',
-    category: 'drink',
-    subcategory: 'drink',
-  },
-  {
-    id: 'drink-4',
-    name: 'Limonada Casera',
-    description: 'Refrescante limonada natural 1L',
+    id: 'personal-1',
+    name: 'Pizza Personal Cualquier Sabor',
+    description: 'Pizza personal a elegir entre: americana, pepperoni, hawaiana, vegetariana, pepperoni especial, carnívora, mixta, alemana y carnívora tropical',
     price: 12.00,
-    image: 'https://images.getrecipekit.com/20250725094715-como-hacer-limonada.webp?aspect_ratio=1:1&quality=90&',
-    category: 'drink',
-    subcategory: 'drink',
-  },
-  {
-    id: 'drink-5',
-    name: 'Cerveza Artesanal',
-    description: 'Cerveza artesanal 500ml',
-    price: 18.00,
-    image: 'https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&h=400&fit=crop',
-    category: 'drink',
-    subcategory: 'drink',
+    image: IMG.pizzaPersonal,
+    category: 'pizza',
+    subcategory: 'pizza-personal',
+    popular: true,
   },
 ];
 
-export const sides: ExtendedProduct[] = [
+// ─── Pizza Doble ──────────────────────────────────────────────────────────────
+
+export const pizzaDoble: ExtendedProduct[] = [
   {
-    id: 'side-1',
-    name: 'Alitas BBQ',
-    description: '10 alitas de pollo con salsa BBQ',
-    price: 22.90,
-    image: 'https://images.unsplash.com/photo-1527477396000-e27163b481c2?w=600&h=400&fit=crop',
-    category: 'side',
-    subcategory: 'side',
-    subcategory: 'side',
+    id: 'doble-1',
+    name: 'Pizzas Clásicas x2',
+    description: 'Disfruta de 2 pizzas clásicas grandes o familiares: americana, pepperoni o hawaiana',
+    price: 46.90,
+    image: IMG.pizzaDoble,
+    category: 'pizza',
+    subcategory: 'pizza-doble',
+  },
+];
+
+// ─── Combos de 6 Porciones ────────────────────────────────────────────────────
+
+export const combos6: ExtendedProduct[] = [
+  {
+    id: 'combo6-1',
+    name: 'Combo 1',
+    description: 'Pizza americana grande, pan al ajo (4 panecillos) y Pepsi 1lt',
+    price: 39.90,
+    image: IMG.combo6_1,
+    category: 'pizza',
+    subcategory: 'combo-6',
+    popular: true,
   },
   {
-    id: 'side-2',
-    name: 'Alitas Picantes',
-    description: '10 alitas de pollo con salsa picante',
-    price: 22.90,
-    image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQqW2xZDjxHy13PlI1NR5j0YV8xWexdgFbZEQ&s',
-    category: 'side',
-    subcategory: 'side',
+    id: 'combo6-2',
+    name: 'Combo 2',
+    description: 'Dos pizzas grandes: pepperoni y americana',
+    price: 48.90,
+    image: IMG.combo6_2,
+    category: 'pizza',
+    subcategory: 'combo-6',
   },
   {
-    id: 'side-3',
-    name: 'Pan de Ajo',
-    description: 'Pan artesanal con mantequilla de ajo y hierbas',
-    price: 12.90,
-    image: 'https://images.unsplash.com/photo-1573140401552-3fab0b24306f?w=600&h=400&fit=crop',
-    category: 'side',
-    subcategory: 'side',
+    id: 'combo6-3',
+    name: 'Combo 3',
+    description: 'Dos pizzas grandes cualquier sabor y Pepsi 1lt',
+    price: 55.90,
+    image: IMG.combo6_3,
+    category: 'pizza',
+    subcategory: 'combo-6',
   },
   {
-    id: 'side-4',
-    name: 'Palitos de Mozzarella',
-    description: '8 palitos de mozzarella empanizados',
-    price: 18.90,
-    image: 'https://images.unsplash.com/photo-1531749668029-2db88e4276c7?w=600&h=400&fit=crop',
-    category: 'side',
-    subcategory: 'side',
+    id: 'combo6-4',
+    name: 'Combo 4',
+    description: 'Tres pizzas grandes: dos de americana y una de pepperoni, con Pepsi de 1 litro',
+    price: 64.90,
+    image: IMG.combo6_4,
+    category: 'pizza',
+    subcategory: 'combo-6',
   },
   {
-    id: 'side-5',
-    name: 'Ensalada César',
-    description: 'Lechuga romana, crutones, parmesano y aderezo césar',
-    price: 16.90,
-    image: 'https://images.unsplash.com/photo-1546793665-c74683f339c1?w=600&h=400&fit=crop',
-    category: 'side',
-    subcategory: 'side',
+    id: 'combo6-5',
+    name: 'Combo 5',
+    description: 'Pizza grande cualquier sabor, pan al ajo (4 panecillos) y Pepsi 1lt',
+    price: 43.90,
+    image: IMG.combo6_5,
+    category: 'pizza',
+    subcategory: 'combo-6',
   },
   {
-    id: 'side-6',
-    name: 'Tiramisu',
-    description: 'Postre italiano clásico con café y mascarpone',
+    id: 'combo6-6',
+    name: 'Combo 6',
+    description: 'Cuatro pizzas grandes de cualquier sabor y una Pepsi de 1 litro',
+    price: 92.90,
+    image: IMG.combo6_6,
+    category: 'pizza',
+    subcategory: 'combo-6',
+  },
+];
+
+// ─── Promociones de 8 Porciones ───────────────────────────────────────────────
+
+export const promos8: ExtendedProduct[] = [
+  {
+    id: 'promo8-1',
+    name: 'Promo 1',
+    description: 'Pizza americana familiar, pan al ajo (8 panecillos) con Inca Cola o Coca Cola 1.5lt',
+    price: 51.90,
+    image: IMG.promo8_1,
+    category: 'pizza',
+    subcategory: 'promo-8',
+    popular: true,
+  },
+  {
+    id: 'promo8-2',
+    name: 'Promo 2',
+    description: 'Dos pizzas familiares: una con pepperoni y otra con pepperoni y carne',
+    price: 64.00,
+    image: IMG.promo8_2,
+    category: 'pizza',
+    subcategory: 'promo-8',
+  },
+  {
+    id: 'promo8-3',
+    name: 'Promo 3',
+    description: 'Tres pizzas familiares clásicas con pepperoni',
+    price: 77.00,
+    image: IMG.promo8_3,
+    category: 'pizza',
+    subcategory: 'promo-8',
+  },
+  {
+    id: 'promo8-4',
+    name: 'Promo 4',
+    description: 'Pizza especial familiar, pan al ajo (8 panecillos) con Inca Cola o Coca Cola 1.5lt',
+    price: 55.90,
+    image: IMG.promo8_4,
+    category: 'pizza',
+    subcategory: 'promo-8',
+  },
+  {
+    id: 'promo8-5',
+    name: 'Promo 5',
+    description: 'Dos pizzas familiares: americana o pepperoni, con Inca Kola o Coca Cola de 1.5 litros',
+    price: 71.90,
+    image: IMG.promo8_5,
+    category: 'pizza',
+    subcategory: 'promo-8',
+  },
+  {
+    id: 'promo8-6',
+    name: 'Promo 6',
+    description: 'Dos pizzas familiares especiales, pan al ajo (8 panecillos) y bebida de 1.5lt (Inca Kola o Coca Cola)',
+    price: 84.90,
+    image: IMG.promo8_6,
+    category: 'pizza',
+    subcategory: 'promo-8',
+  },
+  {
+    id: 'promo8-7',
+    name: 'Promo 7',
+    description: 'Tres pizzas familiares cualquier sabor con Inca Cola o Coca Cola 1.5lt',
+    price: 96.90,
+    image: IMG.promo8_7,
+    category: 'pizza',
+    subcategory: 'promo-8',
+  },
+];
+
+// ─── Promociones Extremas ─────────────────────────────────────────────────────
+
+export const promosExtremas: ExtendedProduct[] = [
+  {
+    id: 'extreme-1',
+    name: 'Promo Extrema 1',
+    description: 'Pizza extrema (8 ingredientes y extra queso) de 8 porciones, pan al ajo (8 panecillos), Inca Cola o Coca Cola',
+    price: 59.90,
+    image: IMG.extreme1,
+    category: 'pizza',
+    subcategory: 'promo-extrema',
+    popular: true,
+  },
+  {
+    id: 'extreme-2',
+    name: 'Promo Extrema 2',
+    description: 'Dos pizzas extremas (8 ingredientes y extra queso) de 8 porciones, pan al ajo (8 panecillos), Inca Kola o Coca Cola 1.5lt',
+    price: 88.90,
+    image: IMG.extreme2,
+    category: 'pizza',
+    subcategory: 'promo-extrema',
+  },
+];
+
+// ─── Complementos ─────────────────────────────────────────────────────────────
+
+export const complementos: ExtendedProduct[] = [
+  {
+    id: 'comp-1',
+    name: 'Pan al Ajo Tradicional',
+    description: 'Pan artesanal con mantequilla al ajo (8 panecillos)',
+    price: 10.90,
+    image: IMG.panAjoTrad,
+    category: 'side',
+    subcategory: 'complemento',
+    popular: true,
+  },
+  {
+    id: 'comp-2',
+    name: 'Pan al Ajo Especial',
+    description: 'Pan artesanal con mantequilla al ajo, queso cheddar y 100g de queso mozzarella (8 panecillos)',
     price: 15.90,
-    image: 'https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=600&h=400&fit=crop',
+    image: IMG.panAjoEsp,
     category: 'side',
-    subcategory: 'side',
+    subcategory: 'complemento',
+  },
+  {
+    id: 'comp-3',
+    name: 'Crema Rapipizza',
+    description: '2 tapecitos extra de crema de rocoto',
+    price: 3.00,
+    image: IMG.crema,
+    category: 'side',
+    subcategory: 'complemento',
   },
 ];
 
-export const allProducts = [...pizzas, ...combos, ...drinks, ...sides];
-export const popularPizzas = pizzas.filter(p => p.popular);
-export const familyCombos = combos;
+// ─── Exports de conveniencia ──────────────────────────────────────────────────
+
+/** Todos los productos del menú */
+export const allProducts: ExtendedProduct[] = [
+  ...comboRapilover,
+  ...promoAmePeppe,
+  ...promoRapilover,
+  ...pizzaPersonal,
+  ...pizzaDoble,
+  ...combos6,
+  ...promos8,
+  ...promosExtremas,
+  ...complementos,
+];
+
+/** Pizzas más pedidas para el carrusel de la Home */
+export const popularPizzas: ExtendedProduct[] = allProducts.filter(p => p.popular);
+
+/** Combos familiares para el carrusel de la Home */
+export const familyCombos: ExtendedProduct[] = [
+  ...comboRapilover,
+  ...promoRapilover,
+].filter(p => p.popular);
+
+// ─── Tipado legacy (para compatibilidad con páginas existentes) ───────────────
+
+/** @deprecated usar allProducts directamente */
+export const pizzas = [...promoAmePeppe, ...pizzaPersonal, ...pizzaDoble];
+/** @deprecated usar allProducts directamente */
+export const combos = [...comboRapilover, ...promoRapilover, ...combos6];
+/** @deprecated usar allProducts directamente */
+export const sides = complementos;
+/** @deprecated usar allProducts directamente */
+export const drinks: ExtendedProduct[] = [];
+
+// ─── Promociones (para la página de Promociones) ──────────────────────────────
 
 export interface Promotion {
   id: string;
@@ -261,7 +464,7 @@ export interface Promotion {
   type: 'daily' | 'combo' | 'seasonal' | 'coupon';
   details?: string;
   terms?: string[];
-  dayOfWeek?: number; // 0 = Sunday, 1 = Monday, etc.
+  dayOfWeek?: number;
 }
 
 export const promotions: Promotion[] = [
@@ -274,96 +477,56 @@ export const promotions: Promotion[] = [
     image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800&h=500&fit=crop',
     validUntil: '2026-12-31',
     type: 'daily',
-    dayOfWeek: 2, // Tuesday
+    dayOfWeek: 2,
     details: 'Válido solo los martes. Aplica para pizzas medianas y grandes de la categoría clásicas.',
     terms: [
       'Solo martes',
-      'Pizzas clásicas: Margherita, Pepperoni, Hawaiana, Quattro Formaggi',
+      'Pizzas americana y pepperoni',
       'No acumulable con otros descuentos',
-      'Válido para delivery y recojo en tienda'
+      'Válido para delivery y recojo en tienda',
     ],
   },
   {
     id: 'promo-daily-2',
     name: 'Jueves de Combos',
-    description: '30% de descuento en todos los combos familiares',
+    description: '30% de descuento en todos los combos Rapilover',
     discount: 30,
-    image: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&h=500&fit=crop',
+    image: IMG.combo,
     validUntil: '2026-12-31',
     type: 'daily',
-    dayOfWeek: 4, // Thursday
-    details: 'Los jueves disfruta de 30% de descuento en cualquier combo familiar.',
+    dayOfWeek: 4,
+    details: 'Los jueves disfruta de 30% de descuento en cualquier combo Rapilover.',
     terms: [
       'Solo jueves',
-      'Aplica para todos los combos',
+      'Aplica para todos los combos Rapilover',
       'Descuento automático',
-      'No requiere cupón'
+      'No requiere cupón',
     ],
   },
-
-  // Combos Familiares
+  // Combos Especiales
   {
     id: 'promo-combo-1',
-    name: 'Combo Familiar Clásico',
-    description: '2 Pizzas medianas + 2 bebidas 1.5L + 1 complemento',
-    discount: 25,
-    image: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&h=500&fit=crop',
+    name: 'Combo Rapilover para Compartir',
+    description: '3 pizzas grandes: americana o pepperoni + Pepsi 1lt',
+    discount: 20,
+    image: IMG.triple,
     validUntil: '2026-12-31',
     code: 'FAMILIA25',
     type: 'combo',
-    details: 'Ahorra S/ 25 con este combo perfecto para compartir en familia.',
-    terms: [
-      'Incluye 2 pizzas medianas a elección',
-      'Incluye 2 bebidas 1.5L',
-      'Incluye 1 complemento a elección',
-      'Usa el código FAMILIA25'
-    ],
-  },
-  {
-    id: 'promo-combo-2',
-    name: 'Mega Combo Party',
-    description: '3 Pizzas grandes + 3 bebidas + Alitas + Pan de Ajo',
-    discount: 35,
-    image: 'https://images.unsplash.com/photo-1571997478779-2adcbbe9ab2f?w=800&h=500&fit=crop',
-    validUntil: '2026-12-31',
-    code: 'PARTY35',
-    type: 'combo',
-    details: 'Ideal para fiestas y reuniones. Ahorra S/ 35.',
+    details: 'El combo perfecto para compartir con familia o amigos.',
     terms: [
       'Incluye 3 pizzas grandes a elección',
-      'Incluye 3 bebidas 1.5L',
-      'Incluye Alitas BBQ',
-      'Incluye Pan de Ajo',
-      'Usa el código PARTY35'
+      'Incluye Pepsi 1lt',
+      'Usa el código FAMILIA25',
     ],
   },
-
-  // Descuentos por Temporada
-  {
-    id: 'promo-season-1',
-    name: 'Primavera Deliciosa',
-    description: '20% en pizzas vegetarianas',
-    discount: 20,
-    image: 'https://images.unsplash.com/photo-1511689660979-10d2b1aada49?w=800&h=500&fit=crop',
-    validUntil: '2026-09-30',
-    code: 'PRIMAVERA20',
-    type: 'seasonal',
-    details: 'Celebra la primavera con 20% en todas nuestras pizzas vegetarianas.',
-    terms: [
-      'Válido hasta el 30 de septiembre',
-      'Solo pizzas vegetarianas',
-      'Usa el código PRIMAVERA20',
-      'No acumulable'
-    ],
-  },
-
   // Cupones
   {
     id: 'promo-coupon-1',
     name: 'Happy Hour',
     description: '20% de descuento de 5pm a 7pm',
     discount: 20,
-    image: 'https://images.unsplash.com/photo-1595854341625-f33ee10dbf94?w=800&h=500&fit=crop',
+    image: IMG.pepperoni,
     validUntil: '2026-12-31',
     code: 'HAPPY20',
     type: 'coupon',
@@ -372,7 +535,7 @@ export const promotions: Promotion[] = [
       'Válido de 5:00 PM a 7:00 PM',
       'Todos los días',
       'Usa el código HAPPY20',
-      'Aplica para todo el menú'
+      'Aplica para todo el menú',
     ],
   },
   {
@@ -380,16 +543,31 @@ export const promotions: Promotion[] = [
     name: 'Primera Compra',
     description: '15% de descuento en tu primer pedido',
     discount: 15,
-    image: 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=800&h=500&fit=crop',
+    image: IMG.americana,
     validUntil: '2026-12-31',
-    code: 'BIENVENIDO15',
+    code: 'PRIMERA',
     type: 'coupon',
     details: 'Si es tu primera vez con nosotros, obtén 15% de descuento.',
     terms: [
       'Solo para nuevos clientes',
-      'Pedido mínimo S/ 40',
-      'Usa el código BIENVENIDO15',
-      'Válido una sola vez por cliente'
+      'Usa el código PRIMERA',
+      'Válido una sola vez por cliente',
+    ],
+  },
+  {
+    id: 'promo-coupon-3',
+    name: 'Descuento Especial',
+    description: '10% de descuento en cualquier pedido',
+    discount: 10,
+    image: IMG.pizza,
+    validUntil: '2026-12-31',
+    code: 'PROMO10',
+    type: 'coupon',
+    details: '10% de descuento aplicable a cualquier pedido del menú.',
+    terms: [
+      'Aplica para todo el menú',
+      'Usa el código PROMO10',
+      'No acumulable con otras ofertas',
     ],
   },
 ];

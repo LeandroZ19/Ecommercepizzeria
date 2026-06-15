@@ -122,6 +122,15 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* Ocultar scrollbar manteniendo funcionalidad de scroll (útil en móvil) */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 /* Accessibility overrides */
 :root {
   --a11y-font-size: 1rem;

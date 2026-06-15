@@ -1,3 +1,14 @@
+/**
+ * MiCuenta — Perfil de usuario, historial de pedidos y configuración.
+ *
+ * Flujos soportados:
+ * - Sin sesión: formularios de login y registro
+ * - Con sesión: perfil editable, historial de pedidos y opción de logout
+ *
+ * Requiere AuthContext para gestión de estado de autenticación.
+ * Responsivo con layout en columna única para móvil.
+ */
+
 import { motion } from 'motion/react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
@@ -51,39 +62,47 @@ export default function MiCuenta() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = await register({
-      name: registerData.name,
-      email: registerData.email,
-      phone: registerData.phone,
-    });
+    const success = await register(
+      registerData.name,
+      registerData.email,
+      registerData.password,
+    );
     if (success) {
-      toast.success('¡Cuenta creada exitosamente!');
+      toast.success('¡Cuenta creada! Revisa tu email para confirmar.');
+    } else {
+      toast.error('No se pudo crear la cuenta. ¿Ya tienes una cuenta con ese email?');
     }
   };
 
-  const handleUpdateProfile = (e: React.FormEvent) => {
+  const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateProfile(profileData);
+    await updateProfile(profileData);
     setIsEditing(false);
     toast.success('Perfil actualizado correctamente');
   };
 
   const getStatusBadge = (status: string) => {
-    const variants: any = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      confirmed: 'bg-blue-100 text-blue-800',
+    const variants: Record<string, string> = {
+      pending:   'bg-yellow-100 text-yellow-800',
+      preparing: 'bg-blue-100 text-blue-800',
+      sent:      'bg-indigo-100 text-indigo-800',
       delivered: 'bg-green-100 text-green-800',
+      cancelled: 'bg-red-100 text-red-800',
+      confirmed: 'bg-blue-100 text-blue-800',
     };
-    return variants[status] || 'bg-gray-100 text-gray-800';
+    return variants[status] ?? 'bg-gray-100 text-gray-800';
   };
 
   const getStatusText = (status: string) => {
-    const texts: any = {
-      pending: 'Pendiente',
-      confirmed: 'Confirmado',
+    const texts: Record<string, string> = {
+      pending:   'Pendiente',
+      preparing: 'En preparación',
+      sent:      'En camino',
       delivered: 'Entregado',
+      cancelled: 'Cancelado',
+      confirmed: 'Confirmado',
     };
-    return texts[status] || status;
+    return texts[status] ?? status;
   };
 
   if (!user) {
@@ -295,7 +314,7 @@ export default function MiCuenta() {
               Bienvenido, <span className="font-medium text-foreground">{user.name}</span>
             </p>
           </div>
-          <Button variant="outline" onClick={logout} className="gap-2 text-sm">
+          <Button variant="outline" onClick={() => logout()} className="gap-2 text-sm">
             <LogOut className="w-4 h-4" />
             Cerrar Sesión
           </Button>

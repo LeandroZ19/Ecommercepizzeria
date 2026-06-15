@@ -1,3 +1,14 @@
+/**
+ * Carrito — Página del carrito de compras.
+ *
+ * Muestra los productos seleccionados con controles de cantidad,
+ * el campo de cupón de descuento y el resumen del pedido.
+ * El costo de delivery no se calcula aquí; se define en Checkout
+ * según el distrito seleccionado.
+ *
+ * Responsivo: columna única en móvil, layout de 3 columnas en desktop.
+ */
+
 import { motion } from 'motion/react';
 import { useState } from 'react';
 import { useCart } from '../context/CartContext';
@@ -78,14 +89,14 @@ export default function Carrito() {
   }
 
   return (
-    <div className="py-16">
+    <div className="py-8 md:py-16">
       <div className="container mx-auto px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
+          className="mb-6 md:mb-8"
         >
-          <h1 className="font-display text-4xl font-bold mb-2">
+          <h1 className="font-display text-3xl md:text-4xl font-bold mb-2">
             Carrito de Compras
           </h1>
           <p className="text-muted-foreground">

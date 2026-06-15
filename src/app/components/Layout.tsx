@@ -1,3 +1,17 @@
+/**
+ * Layout — Estructura base de todas las páginas.
+ *
+ * Contiene:
+ * - Header sticky con navegación principal y contador de carrito
+ * - Menú hamburguesa para móvil
+ * - <Outlet /> de React Router para el contenido de cada ruta
+ * - Footer con enlaces de navegación e información de contacto
+ * - AccessibilityWidget flotante (esquina inferior derecha)
+ * - Chatbot flotante (encima del widget de accesibilidad)
+ *
+ * Los widgets flotantes tienen z-index 9997-9999 para estar siempre visibles.
+ */
+
 import { Link, Outlet, useLocation } from "react-router";
 import { motion } from "motion/react";
 import {
@@ -11,6 +25,7 @@ import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useState } from "react";
 import AccessibilityWidget from "./AccessibilityWidget";
+import Chatbot from "./Chatbot";
 
 export default function Layout() {
   const { getItemCount } = useCart();
@@ -207,12 +222,15 @@ export default function Layout() {
         <Outlet />
       </main>
 
+      {/* Widget de accesibilidad (esquina inferior derecha) */}
       <AccessibilityWidget />
+      {/* Chatbot flotante (encima del botón de accesibilidad) */}
+      <Chatbot />
 
       {/* Footer */}
       <footer className="bg-primary text-primary-foreground mt-auto bg-[#e25216]">
         <div className="container mx-auto px-4 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
             {/* About */}
             <div>
               <h3 className="font-display text-lg mb-4">

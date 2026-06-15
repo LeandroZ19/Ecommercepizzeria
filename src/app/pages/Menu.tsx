@@ -1,209 +1,295 @@
+/**
+ * Menu — Catálogo completo de productos de RapiPizza.
+ *
+ * Muestra todos los productos agrupados por sección según el menú real:
+ * - Combo Rapilover, Promo Ame & Peppe, Promo Rapilover, Pizza Personal,
+ *   Pizza Doble, Combos 6P, Promos 8P, Promos Extremas, Complementos.
+ *
+ * Funcionalidades:
+ * - Búsqueda en tiempo real por nombre / descripción
+ * - Filtro por sección con scroll horizontal en móvil
+ * - Grilla responsiva (2 → 4 columnas)
+ * - Tarjetas de altura uniforme (flex column con descripción flex-1)
+ * - CTA final para pizza personalizada
+ */
+
 import { motion } from 'motion/react';
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { pizzas, combos, drinks, sides, type ProductCategory } from '../data/products';
+import {
+  allProducts,
+  type ProductCategory,
+  type ExtendedProduct,
+} from '../data/products';
 import { useCart } from '../context/CartContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Check, Eye, Search } from 'lucide-react';
+import { Badge } from '../components/ui/badge';
+import { Eye, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
-type Category = 'all' | ProductCategory;
+// ─── Definición de secciones del menú ────────────────────────────────────────
 
-export default function Menu() {
-  const [activeCategory, setActiveCategory] = useState<Category>('all');
-  const [searchQuery, setSearchQuery] = useState('');
+interface MenuSection {
+  id: 'all' | ProductCategory;
+  label: string;
+  emoji: string;
+}
+
+const SECTIONS: MenuSection[] = [
+  { id: 'all',             label: 'Todo el Menú',       emoji: '🍕' },
+  { id: 'combo-rapilover', label: 'Combo Rapilover',    emoji: '🔥' },
+  { id: 'promo-ame-peppe', label: 'Ame & Peppe',        emoji: '⭐' },
+  { id: 'promo-rapilover', label: 'Promo Rapilover',    emoji: '🎉' },
+  { id: 'pizza-personal',  label: 'Pizza Personal',     emoji: '🍕' },
+  { id: 'pizza-doble',     label: 'Pizza Doble',        emoji: '2️⃣' },
+  { id: 'combo-6',         label: 'Combos 6 Porciones', emoji: '📦' },
+  { id: 'promo-8',         label: 'Promos 8 Porciones', emoji: '👨‍👩‍👧‍👦' },
+  { id: 'promo-extrema',   label: 'Promos Extremas',    emoji: '💥' },
+  { id: 'complemento',     label: 'Complementos',       emoji: '🧄' },
+];
+
+// ─── Componente de tarjeta de producto ───────────────────────────────────────
+
+/**
+ * ProductCard — Tarjeta de producto con altura uniforme.
+ *
+ * Usa flex-col con la descripción como flex-1 para que todas las
+ * tarjetas en la misma fila tengan la misma altura independientemente
+ * del largo del texto.
+ */
+function ProductCard({
+  product,
+  index,
+}: {
+  product: ExtendedProduct;
+  index: number;
+}) {
   const { addToCart } = useCart();
 
-  const allProducts = [...pizzas, ...combos, ...drinks, ...sides];
-
-  let filteredProducts = activeCategory === 'all'
-    ? allProducts
-    : allProducts.filter((p) => p.subcategory === activeCategory);
-
-  // Filtrar por búsqueda
-  if (searchQuery.trim()) {
-    filteredProducts = filteredProducts.filter((p) =>
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.description.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }
-
-  const categories = [
-    { id: 'all', name: 'Todo', count: allProducts.length },
-    { id: 'pizza-clasica', name: 'Pizzas Clásicas', count: pizzas.filter(p => p.subcategory === 'pizza-clasica').length },
-    { id: 'pizza-especial', name: 'Pizzas Especiales', count: pizzas.filter(p => p.subcategory === 'pizza-especial').length },
-    { id: 'combo', name: 'Combos', count: combos.length },
-    { id: 'drink', name: 'Bebidas', count: drinks.length },
-    { id: 'side', name: 'Complementos', count: sides.length },
-  ];
-
-  const handleAddToCart = (product: any) => {
+  const handleAdd = () => {
     addToCart(product);
-    toast.success(`${product.name} agregado al carrito`, {
-      icon: <Check className="w-4 h-4" />,
-    });
+    toast.success(`${product.name} agregado al carrito`);
   };
 
+  const isPizza = product.category === 'pizza';
+  /** ID de la página de detalles (si existe) */
+  const detailPageId = product.detailId ?? (product.id.startsWith('pizza-') ? product.id : null);
+
   return (
-    <div className="py-16">
+    <motion.article
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: Math.min(index * 0.04, 0.4) }}
+      className="bg-card rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all group border border-border flex flex-col h-full"
+      aria-label={product.name}
+    >
+      {/* Imagen — aspecto fijo para igualdad de altura */}
+      <div className="relative overflow-hidden aspect-[4/3] flex-shrink-0">
+        <img
+          src={product.image}
+          alt={product.name}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          loading="lazy"
+        />
+
+        {/* Badge de precio */}
+        <div className="absolute top-2 right-2 bg-primary text-primary-foreground px-2 py-1 rounded-full text-xs font-bold shadow-md">
+          S/ {product.price.toFixed(2)}
+        </div>
+
+        {/* Badge popular */}
+        {product.popular && (
+          <div className="absolute top-2 left-2">
+            <Badge className="text-[10px] px-1.5 py-0 bg-secondary text-secondary-foreground">
+              Popular
+            </Badge>
+          </div>
+        )}
+      </div>
+
+      {/* Contenido — flex-1 para altura uniforme */}
+      <div className="flex flex-col flex-1 p-3 md:p-4">
+        {/* Nombre */}
+        <h3 className="font-display text-sm md:text-base font-bold mb-1 line-clamp-2 leading-tight">
+          {product.name}
+        </h3>
+
+        {/* Descripción — crece para igualar alturas */}
+        <p className="text-xs text-muted-foreground mb-3 flex-1 line-clamp-3 leading-relaxed">
+          {product.description}
+        </p>
+
+        {/* Precio prominente */}
+        <p className="text-primary font-bold text-base mb-3">
+          S/ {product.price.toFixed(2)}
+        </p>
+
+        {/* Botones de acción — siempre al fondo */}
+        <div className="flex gap-1.5 mt-auto">
+          {isPizza && detailPageId && (
+            <Link to={`/producto/${detailPageId}`} className="flex-1">
+              <Button variant="outline" className="w-full h-8 text-xs" size="sm">
+                <Eye className="w-3 h-3 mr-1" aria-hidden="true" />
+                Detalles
+              </Button>
+            </Link>
+          )}
+          <Button
+            onClick={handleAdd}
+            className={`h-8 text-xs ${isPizza && detailPageId ? 'flex-1' : 'w-full'}`}
+            size="sm"
+            aria-label={`Agregar ${product.name} al carrito`}
+          >
+            Agregar
+          </Button>
+        </div>
+      </div>
+    </motion.article>
+  );
+}
+
+// ─── Página principal ─────────────────────────────────────────────────────────
+
+type ActiveSection = 'all' | ProductCategory;
+
+/** Página del catálogo de productos */
+export default function Menu() {
+  const [activeSection, setActiveSection] = useState<ActiveSection>('all');
+  const [searchQuery, setSearchQuery]     = useState('');
+
+  // Filtrado por sección
+  const bySection: ExtendedProduct[] =
+    activeSection === 'all'
+      ? allProducts
+      : allProducts.filter(p => p.subcategory === activeSection);
+
+  // Filtrado adicional por búsqueda
+  const filtered: ExtendedProduct[] = searchQuery.trim()
+    ? bySection.filter(
+        p =>
+          p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          p.description.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : bySection;
+
+  return (
+    <div className="py-8 md:py-12">
       <div className="container mx-auto px-4">
-        {/* Header */}
+
+        {/* Encabezado */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-12"
+          className="text-center mb-6 md:mb-10"
         >
-          <h1 className="font-display text-5xl font-bold mb-4">
+          <h1 className="font-display text-3xl md:text-5xl font-bold mb-3">
             Nuestro Menú
           </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Descubre nuestra selección de pizzas artesanales, bebidas refrescantes
-            y deliciosos complementos
+          <p className="text-sm md:text-base text-muted-foreground max-w-2xl mx-auto">
+            {allProducts.length} productos — combos, promos y complementos
           </p>
         </motion.div>
 
-        {/* Search Bar */}
+        {/* Buscador */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="max-w-xl mx-auto mb-8"
+          className="max-w-lg mx-auto mb-5"
         >
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <Search
+              className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
+              aria-hidden="true"
+            />
             <Input
-              type="text"
-              placeholder="Buscar pizzas, bebidas o complementos..."
+              type="search"
+              placeholder="Buscar productos..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-12 h-12 text-base"
+              onChange={e => setSearchQuery(e.target.value)}
+              className="pl-11 h-11"
+              aria-label="Buscar productos en el menú"
             />
           </div>
         </motion.div>
 
-        {/* Category Filter */}
-        <motion.div
+        {/* Filtro de secciones — scroll horizontal en móvil */}
+        <motion.nav
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="flex flex-wrap justify-center gap-3 mb-12"
+          transition={{ delay: 0.15 }}
+          className="flex overflow-x-auto gap-2 pb-3 mb-6 md:mb-8 scrollbar-hide"
+          aria-label="Filtrar por sección del menú"
         >
-          {categories.map((category) => (
-            <button
-              key={category.id}
-              onClick={() => setActiveCategory(category.id as Category)}
-              className={`px-6 py-3 rounded-full font-medium transition-all ${
-                activeCategory === category.id
-                  ? 'bg-primary text-primary-foreground shadow-lg scale-105'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
-              }`}
-            >
-              {category.name}
-              <span className="ml-2 opacity-70">({category.count})</span>
-            </button>
-          ))}
-        </motion.div>
+          {SECTIONS.map(section => {
+            const count =
+              section.id === 'all'
+                ? allProducts.length
+                : allProducts.filter(p => p.subcategory === section.id).length;
 
-        {/* Products Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredProducts.map((product, index) => (
-            <motion.div
-              key={product.id}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: index * 0.05 }}
-              className="bg-card rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all group border border-border"
-            >
-              <div className="relative overflow-hidden aspect-[4/3]">
-                <img
-                  src={product.image}
-                  alt={product.name}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="absolute top-4 right-4 bg-secondary text-secondary-foreground px-3 py-1.5 rounded-full font-bold shadow-lg">
-                  S/ {product.price.toFixed(2)}
-                </div>
-                {product.category === 'pizza' && (
-                  <div className="absolute top-4 left-4 bg-primary text-primary-foreground px-3 py-1 rounded-full text-xs font-bold uppercase">
-                    {product.size}
-                  </div>
-                )}
-              </div>
-              <div className="p-5">
-                <h3 className="font-display text-xl font-bold mb-2">
-                  {product.name}
-                </h3>
-                <p className="text-sm text-muted-foreground mb-4 line-clamp-2 min-h-[2.5rem]">
-                  {product.description}
-                </p>
-                <div className="flex gap-2">
-                  {product.category === 'pizza' && (
-                    <Link to={`/producto/${product.id}`} className="flex-1">
-                      <Button variant="outline" className="w-full" size="sm">
-                        <Eye className="w-4 h-4 mr-2" />
-                        Detalles
-                      </Button>
-                    </Link>
-                  )}
-                  <Button
-                    onClick={() => handleAddToCart(product)}
-                    className={`group ${product.category === 'pizza' ? 'flex-1' : 'w-full'}`}
-                    variant="default"
-                    size="sm"
-                  >
-                    {product.category === 'pizza' ? 'Agregar' : 'Agregar al Carrito'}
-                    <motion.span
-                      className="ml-2"
-                      whileHover={{ scale: 1.2 }}
-                      transition={{ type: 'spring', stiffness: 400 }}
-                    >
-                      +
-                    </motion.span>
-                  </Button>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+            return (
+              <button
+                key={section.id}
+                onClick={() => setActiveSection(section.id)}
+                aria-pressed={activeSection === section.id}
+                aria-label={`${section.label} (${count} productos)`}
+                className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-full text-xs md:text-sm font-medium transition-all whitespace-nowrap ${
+                  activeSection === section.id
+                    ? 'bg-primary text-primary-foreground shadow-md scale-105'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/70'
+                }`}
+              >
+                <span aria-hidden="true">{section.emoji}</span>
+                {section.label}
+                <span className="opacity-70">({count})</span>
+              </button>
+            );
+          })}
+        </motion.nav>
 
-        {/* Empty State */}
-        {filteredProducts.length === 0 && (
-          <div className="text-center py-20">
-            <Search className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-50" />
-            <p className="text-muted-foreground text-lg mb-2">
-              {searchQuery ? 'No encontramos productos que coincidan con tu búsqueda' : 'No hay productos en esta categoría'}
+        {/* Grilla de productos */}
+        {filtered.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 items-stretch">
+            {filtered.map((product, index) => (
+              <ProductCard key={product.id} product={product} index={index} />
+            ))}
+          </div>
+        ) : (
+          /* Estado vacío */
+          <div className="text-center py-20" role="status">
+            <Search className="w-14 h-14 text-muted-foreground mx-auto mb-4 opacity-40" aria-hidden="true" />
+            <p className="text-lg font-medium mb-2">Sin resultados</p>
+            <p className="text-muted-foreground mb-6">
+              {searchQuery
+                ? `No encontramos productos que coincidan con "${searchQuery}"`
+                : 'No hay productos en esta sección'}
             </p>
             {searchQuery && (
-              <Button
-                variant="outline"
-                onClick={() => setSearchQuery('')}
-                className="mt-4"
-              >
+              <Button variant="outline" onClick={() => setSearchQuery('')}>
                 Limpiar búsqueda
               </Button>
             )}
           </div>
         )}
 
-        {/* Custom Pizza CTA */}
+        {/* CTA pizza personalizada */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="mt-16 bg-gradient-to-r from-accent to-accent/80 rounded-2xl p-8 md:p-12 text-center"
+          className="mt-12 md:mt-16 bg-gradient-to-r from-primary to-primary/80 rounded-2xl p-6 md:p-10 text-center text-primary-foreground"
         >
-          <h2 className="font-display text-3xl font-bold mb-4">
+          <h2 className="font-display text-2xl md:text-3xl font-bold mb-3">
             ¿Quieres crear tu propia pizza?
           </h2>
-          <p className="text-lg mb-6 max-w-2xl mx-auto">
-            Elige tu masa, salsa y los ingredientes que más te gusten. ¡Las
-            posibilidades son infinitas!
+          <p className="text-sm md:text-base mb-5 opacity-90 max-w-xl mx-auto">
+            Elige tu masa, salsa, queso y los ingredientes que más te gusten.
+            La vista previa se actualiza en tiempo real.
           </p>
           <Link to="/pizza-personalizada">
-            <Button size="lg" variant="outline" className="bg-white hover:bg-white/90">
-              Crear Pizza Personalizada
+            <Button size="lg" variant="secondary">
+              Crear Pizza Personalizada 🍕
             </Button>
           </Link>
         </motion.div>

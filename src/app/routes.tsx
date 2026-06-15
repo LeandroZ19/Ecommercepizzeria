@@ -1,3 +1,23 @@
+/**
+ * routes — Configuración de rutas de la aplicación RapiPizza.
+ *
+ * Todas las rutas comparten el Layout base (header, footer, widgets).
+ * Rutas protegidas (checkout) redirigen a /mi-cuenta si no hay sesión activa.
+ *
+ * Mapa de rutas:
+ * / → Home
+ * /menu → Catálogo de productos
+ * /promociones → Ofertas vigentes
+ * /producto/:id → Detalle de pizza
+ * /pizza-personalizada → Creador de pizza
+ * /carrito → Carrito de compras
+ * /checkout → Finalización de pedido (requiere auth)
+ * /mi-cuenta → Perfil de usuario / login
+ * /nosotros → Historia y valores
+ * /contacto → Formulario de contacto
+ * /soporte → FAQ y políticas
+ */
+
 import { createBrowserRouter } from 'react-router';
 import Layout from './components/Layout';
 import Home from './pages/Home';

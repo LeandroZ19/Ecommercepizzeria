@@ -1,3 +1,18 @@
+/**
+ * Home — Página principal de RapiPizza.
+ *
+ * Secciones:
+ * 1. Hero — Presentación con CTA al menú y promociones
+ * 2. Features — Beneficios clave (entrega rápida, delivery gratis, calidad)
+ * 3. Banner Promocional — Destaque de oferta semanal
+ * 4. Carrusel de Pizzas Más Pedidas — react-slick, responsivo
+ * 5. Carrusel de Combos Familiares — react-slick, responsivo
+ * 6. CTA Final — Llamada a acción para hacer pedido
+ *
+ * Completamente responsivo: el hero pasa de dos columnas (desktop)
+ * a una columna (móvil), y los carruseles ajustan slidesToShow.
+ */
+
 import { motion } from 'motion/react';
 import { Link } from 'react-router';
 import { ArrowRight, Clock, Truck, Star } from 'lucide-react';

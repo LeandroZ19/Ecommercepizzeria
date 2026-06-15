@@ -1,3 +1,11 @@
+/**
+ * Contacto — Formulario de contacto e información de la empresa.
+ *
+ * Permite al usuario enviar un mensaje directamente al equipo de RapiPizza.
+ * Incluye validación básica de campos y un estado de éxito tras el envío.
+ * Layout responsivo: columna única en móvil, dos columnas en desktop.
+ */
+
 import { motion } from "motion/react";
 import { useState } from "react";
 import { Button } from "../components/ui/button";
@@ -96,7 +104,7 @@ export default function Contacto() {
       </section>
 
       {/* Contact Info Cards */}
-      <section className="py-16 bg-background">
+      <section className="py-8 md:py-16 bg-background">
         <div className="container mx-auto px-4">
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
             {contactInfo.map((info, index) => (
@@ -133,7 +141,7 @@ export default function Contacto() {
       </section>
 
       {/* Contact Form & Map */}
-      <section className="py-16 bg-muted/30">
+      <section className="py-8 md:py-16 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="grid lg:grid-cols-2 gap-12 max-w-6xl mx-auto">
             {/* Form */}

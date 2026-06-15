@@ -1,3 +1,16 @@
+/**
+ * CartContext — Estado global del carrito de compras.
+ *
+ * Persistencia por usuario: el carrito se guarda en localStorage con la
+ * clave "cart_<userId>" (o "cart_guest" para sesiones sin login).
+ * Cuando el usuario cierra sesión, el carrito de huésped se limpia.
+ *
+ * Funciones expuestas:
+ * - addToCart / removeFromCart / updateQuantity / clearCart
+ * - applyCoupon / removeCoupon — sistema de cupones de descuento
+ * - getTotal / getDiscount / getFinalTotal / getItemCount — derivados
+ */
+
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 
@@ -117,8 +130,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const applyCoupon = (code: string): boolean => {
     const validCoupons = [
+      { code: 'PROMO10',  discount: 10 },
+      { code: 'PRIMERA',  discount: 15 },
       { code: 'FAMILIA25', discount: 25 },
-      { code: 'HAPPY20', discount: 20 },
+      { code: 'HAPPY20',   discount: 20 },
     ];
 
     const coupon = validCoupons.find(
