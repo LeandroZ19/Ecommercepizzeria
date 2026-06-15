@@ -48,63 +48,83 @@ interface KBEntry {
 const KNOWLEDGE_BASE: KBEntry[] = [
   {
     keywords: ['hola', 'buenos', 'buenas', 'hey', 'hi', 'saludos', 'ola'],
-    response: '¡Hola! 👋 Bienvenido a RapiPizza. Soy tu asistente virtual. Puedo ayudarte con información sobre nuestro menú, precios, delivery y horarios. ¿En qué te puedo ayudar?',
+    response: '¡Hola! 👋 Bienvenido a RapiPizza. Soy tu asistente virtual. Puedo ayudarte con el menú, precios, combos, delivery y más. ¿En qué te puedo ayudar?',
   },
   {
-    keywords: ['menu', 'menú', 'carta', 'pizzas', 'qué tienen', 'que tienen', 'opciones'],
-    response: '🍕 Contamos con una gran variedad:\n• **Pizzas Clásicas**: Margherita, Pepperoni, Hawaiana y más\n• **Pizzas Especiales**: Trufa Negra, Prosciutto e Rúcula, Diavola\n• **Combos Familiares**: ideales para compartir\n• **Bebidas y Complementos**: para completar tu pedido\n\nTambién puedes **crear tu pizza personalizada** eligiendo masa, salsa, queso y toppings. ¡Visita nuestro menú para ver todos los detalles!',
+    keywords: ['menu', 'menú', 'carta', 'qué tienen', 'que tienen', 'opciones', 'productos'],
+    response: '🍕 Nuestro menú completo incluye:\n\n**🔥 Combo Rapilover** (desde S/ 41.90)\n• Combo Rapilover, Pizza Doble, para Compartir (3 pizzas), 4U Para Ti\n\n**⭐ Promo Ame & Peppe** (S/ 25.90 c/u)\n• Pizza Americana y Pizza Pepperoni\n\n**🎉 Promo Rapilover** (desde S/ 52.90)\n• Familiar, Tri Clásico, Familiar x2, Tridente Supremo\n\n**🍕 Pizza Personal** — S/ 12.00 (9 sabores)\n\n**📦 Combos 6 Porciones** (desde S/ 39.90)\n• 6 combos diferentes con bebida incluida\n\n**👨‍👩‍👧‍👦 Promos 8 Porciones** (desde S/ 51.90)\n• 7 promos para familia\n\n**💥 Promos Extremas** (desde S/ 59.90)\n• Pizza con 8 ingredientes + extra queso\n\n**🧄 Complementos**\n• Pan al ajo tradicional S/ 10.90, especial S/ 15.90, Crema Rapipizza S/ 3.00',
   },
   {
-    keywords: ['precio', 'precios', 'cuánto', 'cuanto', 'cuesta', 'vale', 'costo'],
-    response: '💰 Nuestros precios varían según el tamaño:\n• **Personal (25cm)**: desde S/ 15.00\n• **Mediana (30cm)**: desde S/ 20.00\n• **Familiar (35cm)**: desde S/ 25.00\n\nLas pizzas especiales y gourmet tienen precios superiores. Visita nuestro Menú para ver los precios exactos de cada producto.',
+    keywords: ['combo rapilover', 'rapilover'],
+    response: '🔥 **Combos Rapilover:**\n• **Combo Rapilover** — Pizza americana grande + pan al ajo (4) + Pepsi 1lt → **S/ 41.90**\n• **Combo Pizza Doble** — 2 pizzas grandes + Pepsi 1lt → **S/ 56.90**\n• **Combo para Compartir** — 3 pizzas grandes (americana/pepperoni) + Pepsi 1lt → **S/ 70.90**\n• **Combo 4U Para Ti** — 4 pizzas grandes + Pepsi 1lt → **S/ 98.90**',
   },
   {
-    keywords: ['delivery', 'entrega', 'envío', 'envio', 'llegar', 'tiempo', 'demora', 'cuánto demora'],
-    response: '🚚 Realizamos delivery a varios distritos de Lima:\n• **Tiempo estimado**: 25-45 minutos según la zona\n• **Precio de delivery**: varía por distrito (S/ 3 - S/ 8)\n• El costo exacto se muestra al ingresar tu dirección en el Checkout\n\n¡Primer pedido con delivery gratis para usuarios nuevos! 🎉',
+    keywords: ['pizza personal', 'personal', '12', 'sabores'],
+    response: '🍕 **Pizza Personal Cualquier Sabor — S/ 12.00**\n\nElige entre 9 sabores:\n• Americana\n• Pepperoni\n• Hawaiana\n• Vegetariana\n• Pepperoni Especial\n• Carnívora\n• Mixta\n• Alemana\n• Carnívora Tropical\n\n¡Perfecta para ti solo! 😋',
+  },
+  {
+    keywords: ['promo 8', 'promo ocho', '8 porciones', 'familiar'],
+    response: '👨‍👩‍👧‍👦 **Promos 8 Porciones (Familiares):**\n• Promo 1 — Pizza americana familiar + pan al ajo (8) + bebida 1.5lt → **S/ 51.90**\n• Promo 2 — 2 pizzas familiares (pepperoni) → **S/ 64.00**\n• Promo 3 — 3 pizzas familiares clásicas → **S/ 77.00**\n• Promo 4 — Pizza especial familiar + pan al ajo + bebida → **S/ 55.90**\n• Promo 5 — 2 pizzas familiares + bebida 1.5lt → **S/ 71.90**\n• Promo 6 — 2 pizzas especiales + pan al ajo (8) + bebida → **S/ 84.90**\n• Promo 7 — 3 pizzas familiares + bebida 1.5lt → **S/ 96.90**',
+  },
+  {
+    keywords: ['extrema', 'extremo', 'promo extrema', '8 ingredientes'],
+    response: '💥 **Promos Extremas:**\n• **Promo Extrema 1** — 1 pizza extrema (8 ingredientes + extra queso) + pan al ajo (8) + bebida → **S/ 59.90**\n• **Promo Extrema 2** — 2 pizzas extremas + pan al ajo (8) + bebida 1.5lt → **S/ 88.90**\n\nLa pizza extrema incluye 8 ingredientes seleccionados + doble queso. ¡Para los amantes del sabor intenso! 🔥',
+  },
+  {
+    keywords: ['complemento', 'complementos', 'pan al ajo', 'pan ajo', 'crema', 'rocoto'],
+    response: '🧄 **Complementos:**\n• **Pan al Ajo Tradicional** — 8 panecillos con mantequilla al ajo → **S/ 10.90**\n• **Pan al Ajo Especial** — 8 panecillos con mantequilla al ajo + queso cheddar + 100g mozzarella → **S/ 15.90**\n• **Crema Rapipizza** — 2 tapecitos de crema de rocoto → **S/ 3.00**',
+  },
+  {
+    keywords: ['precio', 'precios', 'cuánto', 'cuanto', 'cuesta', 'vale', 'costo', 'barato'],
+    response: '💰 **Resumen de precios:**\n• Pizza Personal: **S/ 12.00**\n• Pizza Americana / Pepperoni: **S/ 25.90**\n• Combo Rapilover: desde **S/ 41.90**\n• Combos 6 Porciones: desde **S/ 39.90**\n• Promos 8 Porciones: desde **S/ 51.90**\n• Promos Extremas: desde **S/ 59.90**\n• Pan al ajo: desde **S/ 10.90**\n\n¡Tenemos opciones para todos los presupuestos!',
+  },
+  {
+    keywords: ['delivery', 'entrega', 'envío', 'envio', 'llegar', 'tiempo', 'demora', 'cuánto demora', 'rapido'],
+    response: '🚚 **Información de Delivery:**\n• **Tiempo estimado**: 25–45 minutos según la zona\n• **Costo de delivery**: varía por distrito (se calcula en el checkout)\n• Cubrimos Villa María del Triunfo, Villa El Salvador y distritos cercanos\n\n¡También puedes recoger tu pedido en nuestra tienda sin costo adicional! 🏪',
   },
   {
     keywords: ['horario', 'horarios', 'hora', 'abierto', 'abre', 'cierra', 'disponible'],
-    response: '🕐 Nuestros horarios de atención:\n• **Lunes a Jueves**: 11:00 am – 10:00 pm\n• **Viernes y Sábado**: 11:00 am – 11:30 pm\n• **Domingo**: 12:00 pm – 10:00 pm\n\nRalizamos delivery hasta 30 minutos antes del cierre.',
+    response: '🕐 **Horarios de Atención:**\n• **Lunes a Jueves**: 18:00 – 23:30\n• **Viernes y Sábado**: 18:00 – 00:00\n• **Domingo**: 18:00 – 23:30\n\nDelivery hasta 30 minutos antes del cierre. 🍕',
   },
   {
-    keywords: ['promoción', 'promociones', 'promo', 'descuento', 'oferta', 'ofertas', '2x1'],
-    response: '🎉 ¡Tenemos promociones increíbles!\n• **2x1 en pizzas clásicas** todos los martes\n• **Combo familiar** con bebida incluida los fines de semana\n• **Descuentos exclusivos** para usuarios registrados\n• Usa el código **PROMO10** para 10% de descuento en tu primer pedido\n\nVisita nuestra página de Promociones para ver todas las ofertas vigentes.',
+    keywords: ['promoción', 'promociones', 'oferta', 'ofertas', '2x1', 'descuento promo'],
+    response: '🎉 **Promociones Vigentes:**\n• **2×1 en pizzas clásicas** — todos los martes\n• **Jueves de combos** — 30% en Combos Rapilover\n• Código **PROMO10** → 10% de descuento en cualquier pedido\n• Código **PRIMERA** → 15% en tu primer pedido\n• Código **HAPPY20** → 20% en horario 5pm–7pm\n• Código **FAMILIA25** → Descuento especial en combos familiares\n\nVisita la página de Promociones para ver todas las ofertas.',
   },
   {
-    keywords: ['cupon', 'cupón', 'código', 'codigo', 'descuento'],
-    response: '🏷️ Para usar un cupón de descuento:\n1. Agrega tus productos al carrito\n2. Ve al Checkout\n3. Ingresa el código en el campo "Cupón de descuento"\n4. El descuento se aplica automáticamente\n\nCódigos disponibles: **PROMO10** (10% off), **PRIMERA** (15% en primer pedido).',
+    keywords: ['cupon', 'cupón', 'código', 'codigo', 'promo10', 'primera', 'happy20'],
+    response: '🏷️ **Cupones disponibles:**\n• **PROMO10** → 10% de descuento\n• **PRIMERA** → 15% en tu primer pedido\n• **HAPPY20** → 20% de 5pm a 7pm\n• **FAMILIA25** → Descuento en combos familiares\n\n**¿Cómo usarlos?**\n1. Agrega productos al carrito\n2. Ve al Checkout\n3. Ingresa el código en "¿Tienes un cupón?"\n4. ¡El descuento se aplica automáticamente!',
   },
   {
-    keywords: ['pizza personalizada', 'crear pizza', 'personalizar', 'armé', 'armar'],
-    response: '🎨 ¡Nuestra función estrella! Puedes crear tu pizza perfecta:\n1. Elige el **tamaño** (Personal, Mediana o Familiar)\n2. Selecciona la **masa** (Clásica, Delgada, Gruesa o Integral)\n3. Elige tu **salsa** favorita\n4. Selecciona el **queso**\n5. Agrega los **toppings** que quieras\n\n¡Una vista previa animada te muestra cómo queda mientras la armas! 🍕',
+    keywords: ['pizza personalizada', 'crear pizza', 'personalizar', 'armar', 'personaliza'],
+    response: '🎨 **¡Crea tu Pizza Perfecta!**\nNuestra función especial te permite armar tu pizza desde cero:\n1. Elige el **tamaño** — Personal (S/15), Mediana (S/20) o Familiar (S/25)\n2. Selecciona la **masa** — Clásica, Delgada, Gruesa o Integral\n3. Elige la **salsa** — Tomate, BBQ, Crema o Pesto\n4. Selecciona el **queso** — Mozzarella, Parmesano, Gorgonzola\n5. Agrega hasta **12 toppings** — carnes, vegetales y extras\n\n¡La vista previa 3D se actualiza en tiempo real! 🍕',
   },
   {
-    keywords: ['ingredientes', 'alergia', 'alergenos', 'alérgenos', 'gluten', 'lácteos'],
-    response: '⚠️ Información importante sobre alérgenos:\n• La mayoría de nuestras pizzas contienen **Gluten** y **Lácteos**\n• Cada producto en el detalle muestra sus alérgenos específicos\n• Si tienes alguna alergia severa, por favor contáctanos directamente al **+51 903 582 008** antes de ordenar',
+    keywords: ['pago', 'pagar', 'tarjeta', 'efectivo', 'yape', 'plin'],
+    response: '💳 **Métodos de Pago:**\n• Tarjeta de crédito/débito (Visa, Mastercard)\n• Efectivo al momento de la entrega\n\nPara pedidos online, selecciona tu método en el Checkout. 💳',
   },
   {
-    keywords: ['pago', 'pagar', 'tarjeta', 'efectivo', 'yape', 'plin', 'transferencia'],
-    response: '💳 Métodos de pago disponibles:\n• **Tarjetas de crédito/débito** (Visa, Mastercard)\n• **Yape** y **Plin**\n• **Efectivo** al momento de la entrega\n• **Transferencia bancaria**\n\nTodos los pagos online son 100% seguros.',
+    keywords: ['dirección', 'ubicacion', 'ubicación', 'donde', 'dónde', 'local', 'tienda', 'villa maria'],
+    response: '📍 **Nuestra Ubicación:**\n**Av. Sucre 112 San Gabriel, Villa María del Triunfo 15811**\n\n📞 **Teléfono**: +51 903 582 008\n📧 **Email**: info@rapipizza.com\n\n¡También hacemos delivery a domicilio! 🚚',
   },
   {
-    keywords: ['dirección', 'ubicacion', 'ubicación', 'donde', 'dónde', 'local', 'tienda'],
-    response: '📍 Nos encontramos en:\n**Av. Sucre 112 San Gabriel, Villa María del Triunfo 15811**\n\nTambién puedes seguirnos en redes sociales o llamarnos:\n📞 +51 903 582 008\n📧 info@rapipizza.com',
+    keywords: ['cuenta', 'registro', 'registrar', 'login', 'iniciar sesion', 'perfil', 'crear cuenta'],
+    response: '👤 **¿Cómo crear tu cuenta?**\n1. Clic en **"Mi Cuenta"** en la barra de navegación\n2. Selecciona la pestaña **"Registrarse"**\n3. Completa: nombre, email, teléfono y contraseña\n4. ¡Listo! Con tu cuenta puedes:\n   • Ver historial de pedidos\n   • Guardar tu dirección\n   • Acceder a promociones exclusivas\n   • Descargar boleta de cada compra 🧾',
   },
   {
-    keywords: ['cuenta', 'registro', 'registrar', 'login', 'iniciar sesión', 'perfil'],
-    response: '👤 Para crear tu cuenta en RapiPizza:\n1. Haz clic en **"Mi Cuenta"** en la barra de navegación\n2. Selecciona **"Crear cuenta"**\n3. Completa tus datos\n4. ¡Listo! Podrás ver tu historial de pedidos y guardar tus direcciones favoritas\n\nTener cuenta desbloquea promociones exclusivas y delivery prioritario.',
+    keywords: ['boleta', 'factura', 'comprobante', 'recibo', 'pdf'],
+    response: '🧾 **Boleta de compra:**\nAl finalizar tu pedido en el Checkout, podrás **descargar tu boleta en PDF** directamente desde el sitio.\n\nLa boleta incluye:\n• Número de pedido\n• Detalle de productos\n• Descuentos aplicados\n• Total pagado\n• Información de delivery',
   },
   {
-    keywords: ['problema', 'error', 'falla', 'no funciona', 'ayuda', 'soporte', 'queja'],
-    response: '🛠️ Lamentamos los inconvenientes. Puedes obtener ayuda en:\n• **Soporte**: visita nuestra página de Soporte\n• **Teléfono**: +51 903 582 008\n• **Email**: info@rapipizza.com\n• **Horario de atención al cliente**: 9am – 11pm todos los días\n\nNuestro equipo responde en menos de 2 horas.',
+    keywords: ['problema', 'error', 'falla', 'no funciona', 'ayuda', 'soporte', 'queja', 'reclamo'],
+    response: '🛠️ **Centro de Soporte:**\n• Visita nuestra página de **Soporte** en el menú\n• 📞 Llámanos: **+51 903 582 008**\n• 📧 Email: **info@rapipizza.com**\n• Horario soporte: 18:00 – 23:00 todos los días\n\nRespondemos en menos de 30 minutos. ⚡',
   },
   {
-    keywords: ['gracias', 'ok', 'okay', 'listo', 'entendido', 'perfecto', 'excelente'],
-    response: '😊 ¡De nada! Fue un placer ayudarte. Si tienes más preguntas, no dudes en consultarme. ¡Buen provecho! 🍕',
+    keywords: ['gracias', 'ok', 'okay', 'listo', 'entendido', 'perfecto', 'excelente', 'chevere'],
+    response: '😊 ¡De nada! Fue un placer ayudarte. Si tienes más preguntas, estoy aquí. ¡Buen provecho! 🍕❤️',
   },
   {
-    keywords: ['adios', 'adiós', 'chao', 'bye', 'hasta luego', 'ciao'],
-    response: '👋 ¡Hasta luego! Que disfrutes tu pizza. Vuelve cuando quieras. 🍕❤️',
+    keywords: ['adios', 'adiós', 'chao', 'bye', 'hasta luego', 'ciao', 'nos vemos'],
+    response: '👋 ¡Hasta luego! Que disfrutes tu pizza. ¡Vuelve pronto! 🍕❤️',
   },
 ];
 

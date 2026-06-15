@@ -79,22 +79,22 @@ export default function Home() {
   return (
     <div className="overflow-hidden">
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-primary via-primary/95 to-secondary text-primary-foreground py-20 md:py-32">
+      <section className="relative bg-gradient-to-br from-primary via-primary/95 to-secondary text-primary-foreground py-14 md:py-32">
         <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
+          <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center">
             <motion.div
               initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6 }}
             >
-              <h1 className="font-display text-5xl md:text-7xl font-bold mb-6 leading-tight">
+              <h1 className="font-display text-4xl sm:text-5xl md:text-7xl font-bold mb-4 md:mb-6 leading-tight">
                 Auténtica Pizza Artesanal
               </h1>
-              <p className="text-lg md:text-xl mb-8 opacity-95">
+              <p className="text-base md:text-xl mb-6 md:mb-8 opacity-95">
                 Sabores tradicionales hechos con pasión. Ingredientes frescos,
                 recetas auténticas y amor en cada bocado.
               </p>
-              <div className="flex flex-wrap gap-4">
+              <div className="flex flex-wrap gap-3 md:gap-4">
                 <Link to="/menu">
                   <Button size="lg" variant="secondary" className="group">
                     Ver Menú
@@ -117,7 +117,7 @@ export default function Home() {
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="relative"
+              className="relative mt-4 md:mt-0"
             >
               <div className="relative rounded-2xl overflow-hidden shadow-2xl">
                 <img
@@ -132,11 +132,11 @@ export default function Home() {
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ delay: 0.8, type: 'spring' }}
-                className="absolute -bottom-6 -left-6 bg-secondary text-secondary-foreground rounded-full p-6 shadow-xl"
+                className="absolute -bottom-4 -left-4 md:-bottom-6 md:-left-6 bg-secondary text-secondary-foreground rounded-full p-4 md:p-6 shadow-xl"
               >
                 <div className="text-center">
-                  <div className="text-3xl font-bold font-display">2+</div>
-                  <div className="text-xs">Años de<br />Experiencia</div>
+                  <div className="text-2xl md:text-3xl font-bold font-display">2+</div>
+                  <div className="text-[10px] md:text-xs">Años de<br />Experiencia</div>
                 </div>
               </motion.div>
             </motion.div>
@@ -229,40 +229,40 @@ export default function Home() {
             </p>
           </motion.div>
 
-          <div className="relative px-8">
+          <div className="relative px-6 md:px-8">
             <Slider {...sliderSettings}>
               {popularPizzas.map((pizza) => (
-                <div key={pizza.id} className="px-3">
-                  <div className="bg-card rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow group">
-                    <div className="relative overflow-hidden aspect-[4/3]">
+                <div key={pizza.id} className="px-2 md:px-3 h-full">
+                  {/* h-full + flex flex-col garantiza tarjetas de igual altura en el carrusel */}
+                  <div className="bg-card rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow group flex flex-col h-full">
+                    {/* Imagen con aspect ratio fijo */}
+                    <div className="relative overflow-hidden flex-shrink-0" style={{ paddingBottom: '75%', position: 'relative' }}>
                       <img
                         src={pizza.image}
                         alt={pizza.name}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                        loading="lazy"
                       />
-                      <div className="absolute top-4 right-4 bg-secondary text-secondary-foreground px-3 py-1 rounded-full text-sm font-bold">
+                      <div className="absolute top-3 right-3 bg-primary text-primary-foreground px-2.5 py-1 rounded-full text-xs font-bold shadow">
                         S/ {pizza.price.toFixed(2)}
                       </div>
                     </div>
-                    <div className="p-5">
-                      <h3 className="font-display text-xl font-bold mb-2">
+                    {/* Contenido con flex-1 para igualar altura */}
+                    <div className="p-4 flex flex-col flex-1">
+                      <h3 className="font-display text-sm md:text-base font-bold mb-1.5 line-clamp-1">
                         {pizza.name}
                       </h3>
-                      <p className="text-sm text-muted-foreground mb-4 line-clamp-2 min-h-[2.5rem]">
+                      {/* Descripción con altura fija — 3 líneas siempre */}
+                      <p className="text-xs text-muted-foreground mb-3 line-clamp-2 flex-1 leading-relaxed">
                         {pizza.description}
                       </p>
-                      <div className="flex gap-2">
-                        <Link to={`/producto/${pizza.id}`} className="flex-1">
-                          <Button variant="outline" className="w-full" size="sm">
-                            Ver Detalles
+                      <div className="flex gap-1.5 mt-auto">
+                        <Link to={`/producto/${pizza.detailId ?? pizza.id}`} className="flex-1">
+                          <Button variant="outline" className="w-full h-8 text-xs" size="sm">
+                            Detalles
                           </Button>
                         </Link>
-                        <Button
-                          onClick={() => addToCart(pizza)}
-                          className="flex-1"
-                          variant="default"
-                          size="sm"
-                        >
+                        <Button onClick={() => addToCart(pizza)} className="flex-1 h-8 text-xs" size="sm">
                           Agregar
                         </Button>
                       </div>
@@ -292,35 +292,39 @@ export default function Home() {
             </p>
           </motion.div>
 
-          <div className="relative px-8">
+          <div className="relative px-6 md:px-8">
             <Slider {...comboSliderSettings}>
               {familyCombos.map((combo) => (
-                <div key={combo.id} className="px-3">
-                  <div className="bg-card rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow group">
-                    <div className="relative overflow-hidden aspect-[4/3]">
+                <div key={combo.id} className="px-2 md:px-3 h-full">
+                  <div className="bg-card rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow group flex flex-col h-full">
+                    <div className="relative flex-shrink-0" style={{ paddingBottom: '75%', position: 'relative' }}>
                       <img
                         src={combo.image}
                         alt={combo.name}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                        loading="lazy"
                       />
-                      <div className="absolute top-4 right-4 bg-primary text-primary-foreground px-3 py-1 rounded-full text-sm font-bold">
+                      <div className="absolute top-3 right-3 bg-primary text-primary-foreground px-2.5 py-1 rounded-full text-xs font-bold shadow">
                         S/ {combo.price.toFixed(2)}
                       </div>
                     </div>
-                    <div className="p-5">
-                      <h3 className="font-display text-xl font-bold mb-2">
+                    <div className="p-4 flex flex-col flex-1">
+                      <h3 className="font-display text-sm md:text-base font-bold mb-1.5 line-clamp-1">
                         {combo.name}
                       </h3>
-                      <p className="text-sm text-muted-foreground mb-4 line-clamp-3 min-h-[3.75rem]">
+                      <p className="text-xs text-muted-foreground mb-3 line-clamp-2 flex-1 leading-relaxed">
                         {combo.description}
                       </p>
-                      <Button
-                        onClick={() => addToCart(combo)}
-                        className="w-full"
-                        variant="default"
-                      >
-                        Agregar al Carrito
-                      </Button>
+                      <div className="flex gap-1.5 mt-auto">
+                        <Link to={`/producto/${combo.id}`} className="flex-1">
+                          <Button variant="outline" className="w-full h-8 text-xs" size="sm">
+                            Detalles
+                          </Button>
+                        </Link>
+                        <Button onClick={() => addToCart(combo)} className="flex-1 h-8 text-xs" size="sm">
+                          Agregar
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>

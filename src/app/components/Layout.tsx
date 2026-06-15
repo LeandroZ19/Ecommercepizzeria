@@ -56,20 +56,20 @@ export default function Layout() {
     <div className="min-h-screen flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-primary text-primary-foreground shadow-lg bg-[#e25216]">
-        <div className="container mx-auto px-4 py-4">
+        <div className="container mx-auto px-3 md:px-4 py-3 md:py-4">
           <div className="flex items-center justify-between">
             {/* Logo */}
             <Link
               to="/"
-              className="flex items-center gap-3 group"
+              className="flex items-center gap-2 md:gap-3 group"
             >
               <motion.div
                 whileHover={{ rotate: 360 }}
                 transition={{ duration: 0.6 }}
               >
-                <Pizza className="w-8 h-8" />
+                <Pizza className="w-6 h-6 md:w-8 md:h-8" />
               </motion.div>
-              <span className="text-2xl font-display font-bold">
+              <span className="text-lg md:text-2xl font-display font-bold">
                 RapiPizza
               </span>
             </Link>

@@ -21,16 +21,20 @@ import { User, Package, LogOut, Edit, Mail, Phone, MapPin, Lock } from 'lucide-r
 import { toast } from 'sonner';
 
 export default function MiCuenta() {
-  const { user, login, register, logout, updateProfile, orders } = useAuth();
+  const { user, login, register, logout, updateProfile, orders, refreshOrders } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
 
+  // Refrescar pedidos desde Supabase al montar la página
+  // (para que aparezcan incluso si el usuario navegó directamente a /mi-cuenta)
+  useEffect(() => {
+    if (user) refreshOrders();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [loginData, setLoginData] = useState({ email: '', password: '' });
-  const [registerData, setRegisterData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    password: '',
-  });
+  const [registerData, setRegisterData] = useState({ name: '', email: '', phone: '', password: '' });
+  const [needsConfirmation, setNeedsConfirmation] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState('');
   const [profileData, setProfileData] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -52,33 +56,45 @@ export default function MiCuenta() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = await login(loginData.email, loginData.password);
-    if (success) {
+    const { ok, error } = await login(loginData.email, loginData.password);
+    if (ok) {
       toast.success('¡Bienvenido de nuevo!');
     } else {
-      toast.error('Credenciales incorrectas');
+      toast.error(error ?? 'Credenciales incorrectas. Verifica tu email y contraseña.');
     }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = await register(
+    const { ok, error } = await register(
       registerData.name,
       registerData.email,
       registerData.password,
+      registerData.phone,
     );
-    if (success) {
-      toast.success('¡Cuenta creada! Revisa tu email para confirmar.');
+    if (ok) {
+      toast.success('¡Cuenta creada exitosamente! Bienvenido a RapiPizza 🍕');
+      setNeedsConfirmation(false);
     } else {
-      toast.error('No se pudo crear la cuenta. ¿Ya tienes una cuenta con ese email?');
+      const shortError = (error ?? 'No se pudo crear la cuenta').split('\n')[0];
+      // Detectar si es un problema de confirmación de email
+      if (shortError.toLowerCase().includes('confirma') || shortError.toLowerCase().includes('email')) {
+        setNeedsConfirmation(true);
+        setRegisteredEmail(registerData.email);
+      }
+      toast.error(shortError, { duration: 6000 });
     }
   };
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    await updateProfile(profileData);
+    await updateProfile({
+      name:    profileData.name,
+      phone:   profileData.phone,
+      address: profileData.address,
+    });
     setIsEditing(false);
-    toast.success('Perfil actualizado correctamente');
+    toast.success('Perfil guardado correctamente en la base de datos');
   };
 
   const getStatusBadge = (status: string) => {
@@ -208,7 +224,7 @@ export default function MiCuenta() {
                       Iniciar Sesión
                     </Button>
                     <p className="text-sm text-center text-muted-foreground">
-                      Usa cualquier email y contraseña para acceder
+                      Ingresa el email y contraseña con los que te registraste
                     </p>
                   </form>
                 </TabsContent>
@@ -288,6 +304,19 @@ export default function MiCuenta() {
                     <Button type="submit" className="w-full h-12" size="lg">
                       Crear Cuenta
                     </Button>
+
+                    {/* Aviso si el email necesita confirmación */}
+                    {needsConfirmation && (
+                      <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm">
+                        <p className="font-semibold text-amber-800 mb-1">📧 Confirma tu email</p>
+                        <p className="text-amber-700 text-xs">
+                          Se envió un correo a <strong>{registeredEmail}</strong>. Revisa tu bandeja de entrada y haz clic en el enlace de confirmación.
+                        </p>
+                        <p className="text-amber-600 text-xs mt-2">
+                          <strong>¿No lo recibes?</strong> Para evitar esta confirmación, un administrador puede desactivar "Confirm email" en Supabase Dashboard → Auth → Providers → Email.
+                        </p>
+                      </div>
+                    )}
                   </form>
                 </TabsContent>
               </Tabs>
@@ -455,48 +484,52 @@ export default function MiCuenta() {
                     key={order.id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="bg-card rounded-xl p-6 shadow-md border border-border"
+                    transition={{ delay: index * 0.08 }}
+                    className="bg-card rounded-xl p-4 md:p-6 shadow-sm border border-border"
                   >
-                    <div className="flex justify-between items-start mb-4">
+                    {/* Cabecera del pedido */}
+                    <div className="flex flex-wrap justify-between items-start gap-2 mb-4">
                       <div>
-                        <h3 className="font-display text-xl font-bold mb-1">
-                          Pedido #{order.id}
+                        <h3 className="font-display text-base md:text-lg font-bold">
+                          Pedido #{order.id.slice(0, 8).toUpperCase()}
                         </h3>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-xs text-muted-foreground mt-0.5">
                           {new Date(order.date).toLocaleDateString('es-PE', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
+                            year: 'numeric', month: 'long', day: 'numeric',
                           })}
+                          {order.district && ` · ${order.district}`}
                         </p>
                       </div>
-                      <Badge className={getStatusBadge(order.status)}>
+                      <Badge className={`text-xs ${getStatusBadge(order.status)}`}>
                         {getStatusText(order.status)}
                       </Badge>
                     </div>
 
-                    <div className="space-y-2 mb-4">
+                    {/* Items del pedido */}
+                    <div className="space-y-1.5 mb-4">
                       {order.items.map((item, i) => (
-                        <div
-                          key={i}
-                          className="flex justify-between text-sm"
-                        >
-                          <span>
-                            {item.name} × {item.quantity}
+                        <div key={i} className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground line-clamp-1 flex-1 mr-2">
+                            {item.name} <span className="font-medium text-foreground">×{item.quantity}</span>
                           </span>
-                          <span className="font-medium">
+                          <span className="font-medium flex-shrink-0">
                             S/ {(item.price * item.quantity).toFixed(2)}
                           </span>
                         </div>
                       ))}
                     </div>
 
-                    <div className="pt-4 border-t border-border flex justify-between items-center">
-                      <span className="font-bold">Total</span>
-                      <span className="font-bold text-xl text-primary">
-                        S/ {order.total.toFixed(2)}
-                      </span>
+                    {/* Total */}
+                    <div className="pt-3 border-t border-border flex justify-between items-center">
+                      <div className="text-xs text-muted-foreground">
+                        {order.delivery_type === 'delivery' ? '🚚 Delivery' : '🏪 Recojo en tienda'}
+                        {order.delivery_fee ? ` · +S/ ${order.delivery_fee.toFixed(2)} envío` : ''}
+                      </div>
+                      <div className="text-right">
+                        <span className="font-bold md:text-lg text-primary">
+                          S/ {order.total.toFixed(2)}
+                        </span>
+                      </div>
                     </div>
                   </motion.div>
                 ))

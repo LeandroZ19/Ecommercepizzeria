@@ -19,6 +19,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { availableIngredients, type Ingredient, type PizzaSize } from '../data/productsDetailed';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
+import { createCustomPizza } from '../../../utils/supabase/db';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
@@ -207,6 +209,7 @@ function ToppingCard({
 export default function CustomPizza() {
   const navigate = useNavigate();
   const { addToCart } = useCart();
+  const { user }      = useAuth();
 
   // ── Estado del pedido ──────────────────────────────────────────────────────
   const [selectedSize,   setSelectedSize]   = useState<string>('medium');
@@ -284,17 +287,23 @@ export default function CustomPizza() {
     }
   };
 
-  /** Agrega la pizza al carrito y navega al carrito */
-  const handleAddToCart = () => {
+  /**
+   * Agrega la pizza personalizada al carrito y la guarda en Supabase.
+   * La pizza se guarda en la tabla `custom_pizzas` + `custom_pizza_toppings`
+   * para mantener el historial completo de configuraciones.
+   * Si el usuario no está autenticado, solo se agrega al carrito local.
+   */
+  const handleAddToCart = async () => {
     const ingredients = [
       baseIngredient.name,
       sauceIngredient.name,
       cheeseIngredient.name,
       ...selectedToppings.map(({ ingredient, quantity }) =>
-        quantity > 1 ? `${ingredient.name} ×${quantity}` : ingredient.name
+        quantity > 1 ? `${ingredient.name} x${quantity}` : ingredient.name
       ),
     ];
 
+    // Agregar al carrito (siempre funciona)
     addToCart({
       id:          `custom-${Date.now()}`,
       name:        `Pizza Personalizada (${currentSize.name})`,
@@ -304,6 +313,32 @@ export default function CustomPizza() {
       category:    'pizza' as const,
       size:        selectedSize as any,
     });
+
+    // Guardar en Supabase si el usuario está autenticado
+    if (user) {
+      createCustomPizza({
+        userId:      user.id,
+        orderItemId: null,    // se vincula al order_item cuando se confirma el pedido
+        sizeId:      selectedSize,
+        sizeName:    currentSize.name,
+        baseId:      selectedBase,
+        baseName:    baseIngredient.name,
+        sauceId:     selectedSauce,
+        sauceName:   sauceIngredient.name,
+        cheeseId:    selectedCheese,
+        cheeseName:  cheeseIngredient.name,
+        totalPrice,
+        toppings: selectedToppings.map(({ ingredient, quantity }) => ({
+          ingredientId:   ingredient.id,
+          ingredientName: ingredient.name,
+          category:       ingredient.category,
+          quantity,
+          pricePerUnit:   ingredient.price,
+        })),
+      }).then(({ error }) => {
+        if (error) console.error('[custom-pizza] save error:', error);
+      });
+    }
 
     toast.success('Pizza personalizada agregada al carrito', {
       icon: <Check className="w-4 h-4" />,

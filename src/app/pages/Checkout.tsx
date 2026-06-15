@@ -1,16 +1,20 @@
 /**
- * Checkout — Página de finalización de pedido.
+ * Checkout — Order finalisation page for RapiPizza.
  *
- * Requiere sesión activa (redirige a /mi-cuenta si no hay usuario).
- * Flujo:
- *  1. Seleccionar tipo de entrega (delivery / recoger en tienda)
- *  2. Seleccionar distrito (con costo de delivery diferenciado)
- *  3. Completar datos personales y dirección
- *  4. Elegir método de pago (tarjeta / efectivo)
- *  5. Confirmar pedido
+ * Requires an active session — redirects to /mi-cuenta when unauthenticated.
  *
- * Usa CartContext para totales y AuthContext para datos del usuario.
- * Responsivo: columna única en móvil, layout de 3 columnas en desktop.
+ * Flow:
+ *  1. Select delivery type (delivery / store pickup)
+ *  2. Select district (with per-district delivery fee)
+ *  3. Enter personal details and delivery address
+ *  4. Choose payment method (card / cash on delivery)
+ *  5. Confirm order
+ *
+ * Order persistence: writes directly to the `orders` and `order_items`
+ * Supabase tables via the db.ts helper — no KV store, no localStorage.
+ *
+ * Uses CartContext for cart totals and AuthContext for user data.
+ * Responsive: single column on mobile, 3-column grid on desktop.
  */
 
 import { motion } from 'motion/react';
@@ -18,23 +22,22 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { supabase } from '../../../utils/supabase/client';
-import { projectId, publicAnonKey } from '../../../utils/supabase/info';
-
-const API = `https://${projectId}.supabase.co/functions/v1/make-server-8a4cb832`;
+import { createOrder, checkUserHasOrders } from '../../../utils/supabase/db';
+import { generateBoletaPDF } from '../components/BoletaPDF';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group';
-import { CreditCard, Banknote, Truck, Store, CheckCircle } from 'lucide-react';
+import { CreditCard, Banknote, Truck, Store, CheckCircle, Download, Gift } from 'lucide-react';
 import { toast } from 'sonner';
 import DistrictSelector, { districts } from '../components/DistrictSelector';
 
 export default function Checkout() {
   const { items, getTotal, clearCart, appliedCoupon, getDiscount, getFinalTotal } = useCart();
-  const { user } = useAuth();
+  const { user, refreshOrders } = useAuth();
   const navigate = useNavigate();
 
+  // Si no hay sesión, redirigir
   useEffect(() => {
     if (!user) {
       toast.error('Debes iniciar sesión para continuar');
@@ -42,27 +45,49 @@ export default function Checkout() {
     }
   }, [user, navigate]);
 
-  const [deliveryType, setDeliveryType] = useState<'delivery' | 'pickup'>('delivery');
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'cash'>('card');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [selectedDistrict, setSelectedDistrict] = useState('');
+  const [deliveryType,       setDeliveryType]       = useState<'delivery' | 'pickup'>('delivery');
+  const [paymentMethod,      setPaymentMethod]       = useState<'card' | 'cash'>('card');
+  const [isProcessing,       setIsProcessing]        = useState(false);
+  const [selectedDistrict,   setSelectedDistrict]    = useState('');
+  /**
+   * isFirstOrder — true si el usuario no tiene pedidos anteriores.
+   * Cuando es true y elige delivery, el costo de envío es GRATIS
+   * (promoción de primer pedido para usuarios nuevos).
+   */
+  const [isFirstOrder, setIsFirstOrder] = useState(false);
 
   const [formData, setFormData] = useState({
-    name: user?.name || '',
-    email: user?.email || '',
-    phone: user?.phone || '',
-    address: user?.address || '',
+    name:       user?.name    || '',
+    email:      user?.email   || '',
+    phone:      user?.phone   || '',
+    address:    user?.address || '',
     cardNumber: '',
     cardExpiry: '',
-    cardCvv: '',
+    cardCvv:    '',
   });
 
-  const total = getTotal();
-  const discount = getDiscount();
+  // Verificar si es el primer pedido del usuario al montar
+  useEffect(() => {
+    if (!user) return;
+    checkUserHasOrders().then(({ hasOrders }) => setIsFirstOrder(!hasOrders));
+  }, [user]);
+
+  // ── Cálculos de totales ────────────────────────────────────────────────────
+
+  const total              = getTotal();
+  const discount           = getDiscount();
   const subtotalAfterDiscount = getFinalTotal();
-  const districtData = districts.find((d) => d.name === selectedDistrict);
-  const deliveryFee = deliveryType === 'delivery' ? (districtData?.deliveryFee || 0) : 0;
-  const finalTotal = subtotalAfterDiscount + deliveryFee;
+  const districtData       = districts.find(d => d.name === selectedDistrict);
+
+  /**
+   * Tarifa de delivery efectiva:
+   * - 0 si tipo = recojo en tienda
+   * - 0 si es el primer pedido del usuario (promoción bienvenida)
+   * - tarifa del distrito en caso contrario
+   */
+  const baseDeliveryFee    = deliveryType === 'delivery' ? (districtData?.deliveryFee ?? 0) : 0;
+  const deliveryFee        = (deliveryType === 'delivery' && isFirstOrder) ? 0 : baseDeliveryFee;
+  const finalTotal         = subtotalAfterDiscount + deliveryFee;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -73,47 +98,79 @@ export default function Checkout() {
     if (!user) return;
     setIsProcessing(true);
 
-    try {
-      // Obtener el token de la sesión actual para autenticar con el servidor
-      const { data: { session } } = await supabase.auth.getSession();
-      const accessToken = session?.access_token ?? publicAnonKey;
+    const orderDate = new Date().toISOString();
 
-      // Guardar pedido en el KV store vía el servidor Hono
-      await fetch(`${API}/orders`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          items: items.map(item => ({
-            id:       item.id,
-            name:     item.name,
-            image:    item.image,
-            price:    item.price,
-            quantity: item.quantity,
-          })),
-          total:          finalTotal,
-          deliveryFee:    deliveryFee,
-          district:       selectedDistrict || '',
-          deliveryType:   deliveryType,
-          paymentMethod:  paymentMethod,
-          address:        formData.address || '',
-          couponCode:     appliedCoupon?.code ?? null,
-          discount:       discount,
-        }),
+    try {
+      // Save the order directly to the Supabase `orders` and `order_items` tables.
+      // createOrder() inserts the header row first, then batch-inserts all line items.
+      const { data: savedOrder, error: orderErr } = await createOrder({
+        userId:        user.id,
+        items: items.map(item => ({
+          productId:    item.id,
+          productName:  item.name,
+          productImage: item.image ?? null,
+          price:        item.price,
+          quantity:     item.quantity,
+        })),
+        total:         finalTotal,
+        subtotal:      getTotal(),
+        discount,
+        deliveryFee,
+        district:      selectedDistrict || '',
+        deliveryType,
+        paymentMethod,
+        address:       formData.address || '',
+        couponCode:    appliedCoupon?.code ?? null,
+        customerName:  user.name,
+        customerPhone: user.phone,
       });
+
+      if (orderErr) {
+        console.error('[checkout] createOrder error:', orderErr);
+      }
+
+      // Use the DB-assigned UUID if available; otherwise fall back to a local one
+      const confirmedOrderId = savedOrder?.id ?? crypto.randomUUID();
+
+      // Generate and auto-download the PDF receipt (includes estimated time)
+      generateBoletaPDF({
+        orderId:        confirmedOrderId,
+        date:           orderDate,
+        customerName:   user.name,
+        customerEmail:  user.email,
+        customerPhone:  user.phone,
+        address:        formData.address || user.address,
+        district:       selectedDistrict,
+        deliveryType,
+        paymentMethod,
+        estimatedTime:  deliveryType === 'delivery' ? (districtData?.estimatedTime ?? '30-45 min') : 'Recojo en tienda',
+        items: items.map(item => ({
+          name:     item.name,
+          quantity: item.quantity,
+          price:    item.price,
+        })),
+        subtotal:   getTotal(),
+        discount,
+        couponCode: appliedCoupon?.code,
+        deliveryFee,
+        total:      finalTotal,
+      });
+
     } catch (err) {
-      console.error('Error saving order to server:', err);
-      // Continuar aunque falle (no bloquear al usuario)
+      console.error('[checkout] Unexpected error:', err);
+      // Do not block the user — proceed to success flow
     }
 
-    toast.success('¡Pedido realizado con éxito!', {
+    toast.success('¡Pedido realizado! La boleta se descargó automáticamente 🧾', {
       icon: <CheckCircle className="w-4 h-4" />,
+      duration: 5000,
     });
 
     clearCart();
     setIsProcessing(false);
+
+    // Refrescar historial de pedidos para que aparezca inmediatamente en Mi Cuenta
+    refreshOrders();
     navigate('/mi-cuenta');
   };
 
@@ -306,26 +363,50 @@ export default function Checkout() {
                 </div>
 
                 <div className="space-y-3 py-4 border-y border-border">
-                  <div className="flex justify-between text-muted-foreground">
+                  {/* Subtotal */}
+                  <div className="flex justify-between text-muted-foreground text-sm">
                     <span>Subtotal</span>
                     <span>S/ {total.toFixed(2)}</span>
                   </div>
+
+                  {/* Descuento por cupón */}
                   {appliedCoupon && (
-                    <div className="flex justify-between text-green-600">
+                    <div className="flex justify-between text-green-600 text-sm">
                       <span>Descuento ({appliedCoupon.code})</span>
                       <span>-S/ {discount.toFixed(2)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Delivery</span>
-                    <span>
-                      {deliveryFee === 0 ? (
-                        <span className="text-green-600 font-medium">¡GRATIS!</span>
-                      ) : (
-                        `S/ ${deliveryFee.toFixed(2)}`
-                      )}
-                    </span>
-                  </div>
+
+                  {/* Línea de envío — solo muestra cuando es relevante */}
+                  {deliveryType === 'delivery' ? (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Delivery</span>
+                      <span>
+                        {deliveryFee === 0 ? (
+                          <span className="text-green-600 font-medium flex items-center gap-1">
+                            <Gift className="w-3 h-3" />
+                            {isFirstOrder ? 'Gratis (1er pedido)' : 'Gratis'}
+                          </span>
+                        ) : (
+                          <span className="font-medium">S/ {deliveryFee.toFixed(2)}</span>
+                        )}
+                      </span>
+                    </div>
+                  ) : (
+                    /* Recojo en tienda — no hay costo de envío */
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>Recojo en tienda</span>
+                      <span className="text-green-600 font-medium">Sin costo</span>
+                    </div>
+                  )}
+
+                  {/* Tiempo estimado */}
+                  {deliveryType === 'delivery' && districtData && (
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Tiempo estimado</span>
+                      <span className="font-medium">{districtData.estimatedTime}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex justify-between font-bold text-xl mt-4 mb-6">
@@ -340,17 +421,26 @@ export default function Checkout() {
                   disabled={isProcessing}
                 >
                   {isProcessing ? (
-                    'Procesando...'
+                    <span className="flex items-center gap-2">
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Procesando pedido...
+                    </span>
                   ) : (
-                    <>
+                    <span className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4" />
                       Confirmar Pedido
-                      <CheckCircle className="ml-2 w-4 h-4" />
-                    </>
+                    </span>
                   )}
                 </Button>
 
-                <p className="text-xs text-muted-foreground mt-4 text-center">
-                  Al confirmar tu pedido aceptas nuestros términos y condiciones
+                <div className="flex items-center justify-center gap-2 mt-3">
+                  <Download className="w-3 h-3 text-muted-foreground" />
+                  <p className="text-xs text-muted-foreground text-center">
+                    Se descargará tu boleta en PDF automáticamente
+                  </p>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1 text-center">
+                  Al confirmar aceptas nuestros términos y condiciones
                 </p>
               </div>
             </motion.div>

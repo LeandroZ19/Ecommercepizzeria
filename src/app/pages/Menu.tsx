@@ -72,9 +72,8 @@ function ProductCard({
     toast.success(`${product.name} agregado al carrito`);
   };
 
-  const isPizza = product.category === 'pizza';
-  /** ID de la página de detalles (si existe) */
-  const detailPageId = product.detailId ?? (product.id.startsWith('pizza-') ? product.id : null);
+  // Todos los productos tienen página de detalle
+  const detailPageId = product.detailId ?? product.id;
 
   return (
     <motion.article
@@ -127,17 +126,15 @@ function ProductCard({
 
         {/* Botones de acción — siempre al fondo */}
         <div className="flex gap-1.5 mt-auto">
-          {isPizza && detailPageId && (
-            <Link to={`/producto/${detailPageId}`} className="flex-1">
-              <Button variant="outline" className="w-full h-8 text-xs" size="sm">
-                <Eye className="w-3 h-3 mr-1" aria-hidden="true" />
-                Detalles
-              </Button>
-            </Link>
-          )}
+          <Link to={`/producto/${detailPageId}`} className="flex-1">
+            <Button variant="outline" className="w-full h-8 text-xs" size="sm">
+              <Eye className="w-3 h-3 mr-1" aria-hidden="true" />
+              Detalles
+            </Button>
+          </Link>
           <Button
             onClick={handleAdd}
-            className={`h-8 text-xs ${isPizza && detailPageId ? 'flex-1' : 'w-full'}`}
+            className="flex-1 h-8 text-xs"
             size="sm"
             aria-label={`Agregar ${product.name} al carrito`}
           >
