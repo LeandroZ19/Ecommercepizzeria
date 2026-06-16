@@ -375,6 +375,85 @@ export async function createCustomPizza(
   return { data: { id: pizzaRow.id }, error: null };
 }
 
+// ─── Pizza Ingredients & Sizes Operations ─────────────────────────────────────
+
+/**
+ * Row shape for the `pizza_ingredients` table.
+ * Matches the schema in migration 004_pizza_ingredients_drinks.sql.
+ */
+export interface PizzaIngredientRow {
+  id:         string;
+  name:       string;
+  category:   'base' | 'sauce' | 'cheese' | 'meat' | 'vegetable' | 'extra';
+  price:      number;
+  image:      string | null;
+  active:     boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+/**
+ * Row shape for the `pizza_sizes` table.
+ * Matches the schema in migration 004_pizza_ingredients_drinks.sql.
+ */
+export interface PizzaSizeRow {
+  id:         string;
+  name:       string;
+  diameter:   string;
+  slices:     number;
+  price:      number;
+  sort_order: number;
+  active:     boolean;
+  created_at: string;
+}
+
+/**
+ * Fetches all active pizza ingredients from the `pizza_ingredients` table,
+ * ordered by category and sort_order.
+ *
+ * Ingredients are publicly readable — no authentication required.
+ * Used by CustomPizza.tsx to populate the customization builder, with the
+ * local `availableIngredients` array as a fallback if this call fails.
+ *
+ * @returns `{ data: PizzaIngredientRow[], error }` — data is empty array on error.
+ * @example
+ * const { data: ingredients, error } = await fetchPizzaIngredients();
+ * const bases = ingredients.filter(i => i.category === 'base');
+ */
+export async function fetchPizzaIngredients(): Promise<{ data: PizzaIngredientRow[]; error: unknown }> {
+  const { data, error } = await supabase
+    .from('pizza_ingredients')
+    .select('*')
+    .eq('active', true)
+    .order('category', { ascending: true })
+    .order('sort_order', { ascending: true });
+
+  return { data: (data ?? []) as PizzaIngredientRow[], error };
+}
+
+/**
+ * Fetches all active pizza sizes from the `pizza_sizes` table,
+ * ordered by sort_order (smallest first).
+ *
+ * Sizes are publicly readable — no authentication required.
+ * Used by CustomPizza.tsx to populate the size selector, with local
+ * hardcoded sizes as a fallback if this call fails.
+ *
+ * @returns `{ data: PizzaSizeRow[], error }` — data is empty array on error.
+ * @example
+ * const { data: sizes, error } = await fetchPizzaSizes();
+ * const mediana = sizes.find(s => s.id === 'medium');
+ */
+export async function fetchPizzaSizes(): Promise<{ data: PizzaSizeRow[]; error: unknown }> {
+  const { data, error } = await supabase
+    .from('pizza_sizes')
+    .select('*')
+    .eq('active', true)
+    .order('sort_order', { ascending: true });
+
+  return { data: (data ?? []) as PizzaSizeRow[], error };
+}
+
 // ─── District Operations ──────────────────────────────────────────────────────
 
 /**

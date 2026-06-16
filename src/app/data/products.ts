@@ -29,7 +29,9 @@ export type ProductCategory =
   | 'combo-6'
   | 'promo-8'
   | 'promo-extrema'
-  | 'complemento';
+  | 'complemento'
+  /** Bebidas (gaseosas, jugos, artesanales) */
+  | 'drink';
 
 export interface ExtendedProduct extends Product {
   /** Sección del menú a la que pertenece */
@@ -416,6 +418,65 @@ export const complementos: ExtendedProduct[] = [
   },
 ];
 
+// ─── Bebidas ──────────────────────────────────────────────────────────────────
+
+/**
+ * bebidas — Catálogo de bebidas disponibles (gaseosas y artesanales).
+ * Imágenes provistas por el negocio (URLs reales del proveedor).
+ */
+export const bebidas: ExtendedProduct[] = [
+  {
+    id: 'drink-pepsi-1-5l',
+    name: 'Pepsi 1.5L',
+    description: 'Bebida gaseosa Pepsi refrescante',
+    price: 5.50,
+    image: 'https://algomaracucho.pe/70-thickbox_default/pepsi-15-litros.jpg',
+    category: 'drink',
+    subcategory: 'drink',
+    popular: false,
+  },
+  {
+    id: 'drink-coca-1-5l',
+    name: 'Coca Cola 1.5L',
+    description: 'La bebida mas popular del mundo',
+    price: 7.50,
+    image: 'https://fonowaska.com/wp-content/uploads/2023/11/Coca-Cola-1.5Lt-1.jpg',
+    category: 'drink',
+    subcategory: 'drink',
+    popular: false,
+  },
+  {
+    id: 'drink-inca-1-5l',
+    name: 'Inca Cola 1.5L',
+    description: 'La bebida de sabor nacional',
+    price: 6.90,
+    image: 'https://tofuu.getjusto.com/orioneat-local/resized2/wTwwxkNAZfqbXeabW-800-x.webp',
+    category: 'drink',
+    subcategory: 'drink',
+    popular: false,
+  },
+  {
+    id: 'drink-chicha-1-5l',
+    name: 'Chicha Morada 1.5L',
+    description: 'Refrescante chicha morada artesanal',
+    price: 16.90,
+    image: 'https://tofuu.getjusto.com/orioneat-local/resized2/GSvs9QzhNZPwFduu5-300-x.webp',
+    category: 'drink',
+    subcategory: 'drink',
+    popular: false,
+  },
+  {
+    id: 'drink-limonada-1-5l',
+    name: 'Limonada 1.5L',
+    description: 'Limonada fresca de la casa',
+    price: 16.90,
+    image: 'https://tofuu.getjusto.com/orioneat-local/resized2/JnTGXThFck6FZ2Yj9-300-x.webp',
+    category: 'drink',
+    subcategory: 'drink',
+    popular: false,
+  },
+];
+
 // ─── Exports de conveniencia ──────────────────────────────────────────────────
 
 /** Todos los productos del menú */
@@ -429,6 +490,7 @@ export const allProducts: ExtendedProduct[] = [
   ...promos8,
   ...promosExtremas,
   ...complementos,
+  ...bebidas,
 ];
 
 /** Pizzas más pedidas para el carrusel de la Home */
@@ -448,8 +510,8 @@ export const pizzas = [...promoAmePeppe, ...pizzaPersonal, ...pizzaDoble];
 export const combos = [...comboRapilover, ...promoRapilover, ...combos6];
 /** @deprecated usar allProducts directamente */
 export const sides = complementos;
-/** @deprecated usar allProducts directamente */
-export const drinks: ExtendedProduct[] = [];
+/** @deprecated usar bebidas o allProducts directamente */
+export const drinks: ExtendedProduct[] = bebidas;
 
 // ─── Promociones (para la página de Promociones) ──────────────────────────────
 

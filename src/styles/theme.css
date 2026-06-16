@@ -122,6 +122,48 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* ─── react-slick: igualar altura de slides en móvil ───────────────────────────
+ *
+ * react-slick no establece altura en sus elementos wrapper por defecto.
+ * La clase `.slick-equal-height` hace que todos los slides de un carrusel
+ * adopten la misma altura usando flex en los elementos internos de slick.
+ *
+ * Uso: <Slider className="slick-equal-height" ...>
+ *
+ * Estrategia:
+ *  - .slick-track  → display flex para que los slides se extiendan
+ *  - .slick-slide  → height: auto con flex interno para igualar contenedores
+ *  - .slick-slide > div → flex-1 para que el contenido llene el slide
+ */
+.slick-equal-height .slick-track {
+  display: flex !important;
+  align-items: stretch;
+}
+
+.slick-equal-height .slick-slide {
+  display: flex !important;
+  height: auto !important;
+  align-items: stretch;
+}
+
+.slick-equal-height .slick-slide > div {
+  display: flex;
+  flex: 1;
+  width: 100%;
+}
+
+/* ─── Tarjetas de carrusel auto-contenidas (sin depender de slick heights) ─────
+ *
+ * Las tarjetas dentro de `.slick-card` usan aspect-ratio para la imagen
+ * y no dependen de flex-1 para crecer. Los botones siempre están visibles
+ * al fondo mediante mt-auto dentro del contenedor de texto.
+ */
+.slick-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
 /* Ocultar scrollbar manteniendo funcionalidad de scroll (útil en móvil) */
 .scrollbar-hide {
   -ms-overflow-style: none;

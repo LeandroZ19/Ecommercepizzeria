@@ -15,12 +15,12 @@
  */
 
 import { motion } from 'motion/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { availableIngredients, type Ingredient, type PizzaSize } from '../data/productsDetailed';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { createCustomPizza } from '../../../utils/supabase/db';
+import { createCustomPizza, fetchPizzaIngredients } from '../../../utils/supabase/db';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
@@ -226,27 +226,66 @@ export default function CustomPizza() {
   /** Control de visibilidad del resumen en móvil */
   const [summaryOpen, setSummaryOpen] = useState(false);
 
+  /**
+   * ingredients — lista activa de ingredientes.
+   * Se inicializa con el fallback local y se reemplaza con los datos de
+   * Supabase en cuanto estén disponibles.
+   */
+  const [ingredients, setIngredients] = useState<Ingredient[]>(availableIngredients);
+
+  // ── Carga de ingredientes desde Supabase (con fallback local) ──────────────
+  useEffect(() => {
+    /**
+     * Carga los ingredientes activos desde la tabla `pizza_ingredients`.
+     * Si la petición falla (red, RLS, etc.) se mantiene el fallback local.
+     */
+    async function loadIngredients() {
+      const { data, error } = await fetchPizzaIngredients();
+
+      if (error || data.length === 0) {
+        // Mantener el fallback local — no es un error fatal
+        console.warn('[CustomPizza] fetchPizzaIngredients falló, usando fallback local', error);
+        return;
+      }
+
+      // Mapear el row de DB al tipo Ingredient usado por la UI
+      const mapped: Ingredient[] = data.map(row => ({
+        id:       row.id,
+        name:     row.name,
+        category: row.category,
+        price:    Number(row.price),
+        image:    row.image ?? undefined,
+      }));
+
+      setIngredients(mapped);
+    }
+
+    loadIngredients();
+  }, []);
+
   // ── Agrupación de ingredientes ────────────────────────────────────────────
-  const bases      = availableIngredients.filter(i => i.category === 'base');
-  const sauces     = availableIngredients.filter(i => i.category === 'sauce');
-  const cheeses    = availableIngredients.filter(i => i.category === 'cheese');
-  const meats      = availableIngredients.filter(i => i.category === 'meat');
-  const vegetables = availableIngredients.filter(i => i.category === 'vegetable');
-  const extras     = availableIngredients.filter(i => i.category === 'extra');
+  const bases      = ingredients.filter(i => i.category === 'base');
+  const sauces     = ingredients.filter(i => i.category === 'sauce');
+  const cheeses    = ingredients.filter(i => i.category === 'cheese');
+  const meats      = ingredients.filter(i => i.category === 'meat');
+  const vegetables = ingredients.filter(i => i.category === 'vegetable');
+  const extras     = ingredients.filter(i => i.category === 'extra');
 
   // ── Derivados ─────────────────────────────────────────────────────────────
   const currentSize      = pizzaSizes.find(s => s.id === selectedSize)!;
-  const baseIngredient   = availableIngredients.find(i => i.id === selectedBase)!;
-  const sauceIngredient  = availableIngredients.find(i => i.id === selectedSauce)!;
-  const cheeseIngredient = availableIngredients.find(i => i.id === selectedCheese)!;
+  const baseIngredient   = ingredients.find(i => i.id === selectedBase)   ?? ingredients.find(i => i.category === 'base')!;
+  const sauceIngredient  = ingredients.find(i => i.id === selectedSauce)  ?? ingredients.find(i => i.category === 'sauce')!;
+  const cheeseIngredient = ingredients.find(i => i.id === selectedCheese) ?? ingredients.find(i => i.category === 'cheese')!;
 
   /** Lista ordenada de toppings con sus cantidades, para resumen y precio */
   const selectedToppings: ToppingEntry[] = Object.entries(toppingQuantities)
     .filter(([, qty]) => qty > 0)
     .map(([id, quantity]) => ({
-      ingredient: availableIngredients.find(i => i.id === id)!,
+      ingredient: ingredients.find(i => i.id === id)!,
       quantity,
-    }));
+    }))
+    // Filtrar entradas cuyo ingrediente ya no exista (puede ocurrir si DB devuelve set reducido)
+    .filter(t => t.ingredient !== undefined);
 
   const totalToppingPrice = selectedToppings.reduce(
     (sum, { ingredient, quantity }) => sum + ingredient.price * quantity,

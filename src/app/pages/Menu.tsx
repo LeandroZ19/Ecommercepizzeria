@@ -47,6 +47,8 @@ const SECTIONS: MenuSection[] = [
   { id: 'promo-8',         label: 'Promos 8 Porciones', emoji: '👨‍👩‍👧‍👦' },
   { id: 'promo-extrema',   label: 'Promos Extremas',    emoji: '💥' },
   { id: 'complemento',     label: 'Complementos',       emoji: '🧄' },
+  /** Bebidas — gaseosas y jugos artesanales */
+  { id: 'drink',           label: 'Bebidas',            emoji: '🥤' },
 ];
 
 // ─── Componente de tarjeta de producto ───────────────────────────────────────

@@ -290,46 +290,221 @@ export interface Ingredient {
   image?: string;
 }
 
+/**
+ * availableIngredients — Lista local de ingredientes para personalización de pizza.
+ *
+ * Estas imágenes son URLs reales provistas por el negocio.
+ * `meat-prosciutto` y `veg-arugula` han sido eliminados del catálogo.
+ *
+ * Esta lista se usa como fallback si la carga desde Supabase falla
+ * (ver CustomPizza.tsx → useEffect con fetchPizzaIngredients).
+ */
 export const availableIngredients: Ingredient[] = [
-  // Bases — masa de pizza
-  { id: 'base-classic', name: 'Masa Clásica', category: 'base', price: 0, image: 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=200&h=200&fit=crop' },
-  { id: 'base-thin', name: 'Masa Delgada', category: 'base', price: 0, image: 'https://images.unsplash.com/photo-1571997478779-2adcbbe9ab2f?w=200&h=200&fit=crop' },
-  { id: 'base-thick', name: 'Masa Gruesa', category: 'base', price: 2, image: 'https://images.unsplash.com/photo-1593504049359-74330189a345?w=200&h=200&fit=crop' },
-  { id: 'base-integral', name: 'Masa Integral', category: 'base', price: 3, image: 'https://images.unsplash.com/photo-1549931319-a545dcf3bc73?w=200&h=200&fit=crop' },
+  // ── Bases — masa de pizza ────────────────────────────────────────────────────
+  {
+    id: 'base-classic',
+    name: 'Masa Clásica',
+    category: 'base',
+    price: 0,
+    image: 'https://images.ecestaticos.com/PfcZ_EUaqmnqy_9k6dNdS2356UA=/189x33:1847x1276/1200x899/filters:fill(white):format(jpg)/f.elconfidencial.com%2Foriginal%2F9e0%2F49f%2F953%2F9e049f95341469b90655f40109d0ebe7.jpg',
+  },
+  {
+    id: 'base-thin',
+    name: 'Masa Delgada',
+    category: 'base',
+    price: 0,
+    image: 'https://www.aporpizza.es/wp-content/uploads/2019/05/Masa-fina-o-masa-gruesa-fina-1024x640.jpg',
+  },
+  {
+    id: 'base-thick',
+    name: 'Masa Gruesa',
+    category: 'base',
+    price: 2,
+    image: 'https://i.ytimg.com/vi/cYLXQ2yUrVk/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLAKmw8jKynwMNWEQLzOhZWcMg4gIw',
+  },
+  {
+    id: 'base-integral',
+    name: 'Masa Integral',
+    category: 'base',
+    price: 3,
+    image: 'https://gourmet.iprospect.cl/wp-content/uploads/2012/06/pizza-masa-integral.jpg',
+  },
 
-  // Salsas — base líquida
-  { id: 'sauce-tomato', name: 'Salsa de Tomate', category: 'sauce', price: 0, image: 'https://images.unsplash.com/photo-1608897013039-887f21d8c804?w=200&h=200&fit=crop' },
-  { id: 'sauce-bbq', name: 'Salsa BBQ', category: 'sauce', price: 2, image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=200&fit=crop' },
-  { id: 'sauce-cream', name: 'Salsa de Crema', category: 'sauce', price: 2, image: 'https://images.unsplash.com/photo-1612929633738-8fe44f7ec841?w=200&h=200&fit=crop' },
-  { id: 'sauce-pesto', name: 'Salsa Pesto', category: 'sauce', price: 3, image: 'https://images.unsplash.com/photo-1600803907087-f56d462fd26b?w=200&h=200&fit=crop' },
+  // ── Salsas — base líquida ────────────────────────────────────────────────────
+  {
+    id: 'sauce-tomato',
+    name: 'Salsa de Tomate',
+    category: 'sauce',
+    price: 0,
+    image: 'https://recetinas.com/wp-content/uploads/2020/03/salsa-de-tomate.jpg',
+  },
+  {
+    id: 'sauce-bbq',
+    name: 'Salsa BBQ',
+    category: 'sauce',
+    price: 2,
+    image: 'https://www.aceitesdeolivadeespana.com/wp-content/uploads/2023/07/AdobeStock_271099773-1.jpeg',
+  },
+  {
+    id: 'sauce-cream',
+    name: 'Salsa de Crema',
+    category: 'sauce',
+    price: 2,
+    image: 'https://vod-hogarmania.atresmedia.com/hogarmania/images/images01/2013/06/11/5c0019675a2c110001775443/1239x697.jpg',
+  },
+  {
+    id: 'sauce-pesto',
+    name: 'Salsa Pesto',
+    category: 'sauce',
+    price: 3,
+    image: 'https://www.cuerpomente.com/medio/2024/02/08/salsa-pesto-receta_263bea85_240208124611_1280x720.jpg',
+  },
 
-  // Quesos — variedad
-  { id: 'cheese-mozzarella', name: 'Mozzarella', category: 'cheese', price: 0, image: 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200&h=200&fit=crop' },
-  { id: 'cheese-parmesan', name: 'Parmesano', category: 'cheese', price: 3, image: 'https://images.unsplash.com/photo-1582218168559-adadf0f23cf3?w=200&h=200&fit=crop' },
-  { id: 'cheese-gorgonzola', name: 'Gorgonzola', category: 'cheese', price: 4, image: 'https://images.unsplash.com/photo-1626957341926-98752fc2ba1e?w=200&h=200&fit=crop' },
-  { id: 'cheese-goat', name: 'Queso de Cabra', category: 'cheese', price: 4, image: 'https://images.unsplash.com/photo-1559561853-08451507cbe7?w=200&h=200&fit=crop' },
+  // ── Quesos — variedad ────────────────────────────────────────────────────────
+  {
+    id: 'cheese-mozzarella',
+    name: 'Mozzarella',
+    category: 'cheese',
+    price: 0,
+    image: 'https://www.seriouseats.com/thmb/0LrG8tB4BkzQarr2fqrpykcaDBg=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/__opt__aboutcom__coeus__resources__content_migration__serious_eats__seriouseats.com__recipes__images__2015__10__20151017-pies-vicky-wasik-2-6f491edb6065485a86d6af639a592298.jpg',
+  },
+  {
+    id: 'cheese-parmesan',
+    name: 'Parmesano',
+    category: 'cheese',
+    price: 3,
+    image: 'https://www.lacasadelqueso.com.ar/wp-content/uploads/2017/08/parmigiano-reggiano.jpg',
+  },
+  {
+    id: 'cheese-gorgonzola',
+    name: 'Gorgonzola',
+    category: 'cheese',
+    price: 4,
+    image: 'https://www.lacasadelqueso.com.ar/wp-content/uploads/2017/08/queso-gorgonzola.jpg',
+  },
+  {
+    id: 'cheese-goat',
+    name: 'Queso de Cabra',
+    category: 'cheese',
+    price: 4,
+    image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTdSC0GsKi-eIRu6EkbqRnacTtrkFtP9Fa6MA&s',
+  },
 
-  // Carnes — proteínas
-  { id: 'meat-pepperoni', name: 'Pepperoni', category: 'meat', price: 4, image: 'https://images.unsplash.com/photo-1628840042765-356cda07504e?w=200&h=200&fit=crop' },
-  { id: 'meat-ham', name: 'Jamón', category: 'meat', price: 3, image: 'https://images.unsplash.com/photo-1606914501449-5a96b6ce24ca?w=200&h=200&fit=crop' },
-  { id: 'meat-bacon', name: 'Tocino', category: 'meat', price: 4, image: 'https://images.unsplash.com/photo-1528607929212-2636ec44253e?w=200&h=200&fit=crop' },
-  { id: 'meat-sausage', name: 'Salchicha Italiana', category: 'meat', price: 4, image: 'https://images.unsplash.com/photo-1625944230945-1b7dd3b949ab?w=200&h=200&fit=crop' },
-  { id: 'meat-chicken', name: 'Pollo', category: 'meat', price: 4, image: 'https://images.unsplash.com/photo-1598103442097-8b74394b95c3?w=200&h=200&fit=crop' },
-  { id: 'meat-prosciutto', name: 'Prosciutto', category: 'meat', price: 5, image: 'https://images.unsplash.com/photo-1587486937303-a03f6a8edac1?w=200&h=200&fit=crop' },
+  // ── Carnes — proteínas (prosciutto eliminado por solicitud del negocio) ───────
+  {
+    id: 'meat-pepperoni',
+    name: 'Pepperoni',
+    category: 'meat',
+    price: 4,
+    image: 'https://www.ctifoods.com/wp-content/uploads/2025/06/pepperoni-liguria-rustico-copy-1.png',
+  },
+  {
+    id: 'meat-ham',
+    name: 'Jamón',
+    category: 'meat',
+    price: 3,
+    image: 'https://www.macafri.com/web/image/product.product/1038/image_1024/%5B78621155706003%5D%20Jamon%20de%20pierna%20rebanado%20200%20g?unique=da5fa90',
+  },
+  {
+    id: 'meat-bacon',
+    name: 'Tocino',
+    category: 'meat',
+    price: 4,
+    image: 'https://listonic.com/phimageproxy/listonic/products/bacon_bits.webp',
+  },
+  {
+    id: 'meat-sausage',
+    name: 'Salchicha Italiana',
+    category: 'meat',
+    price: 4,
+    image: 'https://st2.depositphotos.com/33365862/87754/p/450/depositphotos_877544782-stock-photo-piece-homemade-sausage-isolated-white.png',
+  },
+  {
+    id: 'meat-chicken',
+    name: 'Pollo',
+    category: 'meat',
+    price: 4,
+    image: 'https://png.pngtree.com/png-clipart/20250105/original/pngtree-fine-strips-of-shredded-chicken-perfect-for-culinary-recipe-and-food-png-image_20078081.png',
+  },
 
-  // Vegetales — frescos
-  { id: 'veg-mushroom', name: 'Champiñones', category: 'vegetable', price: 2, image: 'https://images.unsplash.com/photo-1552825897-bb25aa3e5e01?w=200&h=200&fit=crop' },
-  { id: 'veg-onion', name: 'Cebolla', category: 'vegetable', price: 1, image: 'https://images.unsplash.com/photo-1508747703725-719777637510?w=200&h=200&fit=crop' },
-  { id: 'veg-pepper', name: 'Pimientos', category: 'vegetable', price: 2, image: 'https://images.unsplash.com/photo-1518977956812-cd3dbadaaf31?w=200&h=200&fit=crop' },
-  { id: 'veg-olive', name: 'Aceitunas', category: 'vegetable', price: 2, image: 'https://images.unsplash.com/photo-1609501676813-3f11d5c2b02a?w=200&h=200&fit=crop' },
-  { id: 'veg-tomato', name: 'Tomate', category: 'vegetable', price: 2, image: 'https://images.unsplash.com/photo-1546470427-e26264be0b0d?w=200&h=200&fit=crop' },
-  { id: 'veg-pineapple', name: 'Piña', category: 'vegetable', price: 2, image: 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=200&h=200&fit=crop' },
-  { id: 'veg-arugula', name: 'Rúcula', category: 'vegetable', price: 2, image: 'https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=200&h=200&fit=crop' },
-  { id: 'veg-spinach', name: 'Espinaca', category: 'vegetable', price: 2, image: 'https://images.unsplash.com/photo-1584270354949-c26b0d5b4a0c?w=200&h=200&fit=crop' },
+  // ── Vegetales — frescos (rúcula eliminada por solicitud del negocio) ──────────
+  {
+    id: 'veg-mushroom',
+    name: 'Champiñones',
+    category: 'vegetable',
+    price: 2,
+    image: 'https://png.pngtree.com/png-clipart/20250118/original/pngtree-mushrooms-png-image_19928814.png',
+  },
+  {
+    id: 'veg-onion',
+    name: 'Cebolla',
+    category: 'vegetable',
+    price: 1,
+    image: 'https://www.lopezcastro.com/wp-content/uploads/cebolla-aros.png',
+  },
+  {
+    id: 'veg-pepper',
+    name: 'Pimientos',
+    category: 'vegetable',
+    price: 2,
+    image: 'https://covemed21.es/wp-content/uploads/2025/11/pimientos-3-1024x1024.png',
+  },
+  {
+    id: 'veg-olive',
+    name: 'Aceitunas',
+    category: 'vegetable',
+    price: 2,
+    image: 'https://tekla-cbg.s3.eu-west-3.amazonaws.com/images/large/3586000_CBG_RECURSO_fe9301bfa0.png',
+  },
+  {
+    id: 'veg-tomato',
+    name: 'Tomate',
+    category: 'vegetable',
+    price: 2,
+    image: 'https://png.pngtree.com/png-clipart/20240306/original/pngtree-fresh-slice-of-tomato-png-image_14526186.png',
+  },
+  {
+    id: 'veg-pineapple',
+    name: 'Piña',
+    category: 'vegetable',
+    price: 2,
+    image: 'https://png.pngtree.com/png-clipart/20240921/original/pngtree-pineapple-ring-slices-png-image_16051259.png',
+  },
+  {
+    id: 'veg-spinach',
+    name: 'Espinaca',
+    category: 'vegetable',
+    price: 2,
+    image: 'https://static.vecteezy.com/system/resources/previews/010/984/759/non_2x/fresh-green-spinach-leaf-basil-cut-out-png.png',
+  },
 
-  // Extras — terminaciones
-  { id: 'extra-basil', name: 'Albahaca Fresca', category: 'extra', price: 1, image: 'https://images.unsplash.com/photo-1527792492728-08d07d021a70?w=200&h=200&fit=crop' },
-  { id: 'extra-oregano', name: 'Orégano', category: 'extra', price: 0, image: 'https://images.unsplash.com/photo-1583444741671-e9044c8a73c6?w=200&h=200&fit=crop' },
-  { id: 'extra-garlic', name: 'Ajo', category: 'extra', price: 1, image: 'https://images.unsplash.com/photo-1508747703725-719777637510?w=200&h=200&fit=crop' },
-  { id: 'extra-chili', name: 'Chile', category: 'extra', price: 1, image: 'https://images.unsplash.com/photo-1583119022894-919a68a3d0e3?w=200&h=200&fit=crop' },
+  // ── Extras — terminaciones ───────────────────────────────────────────────────
+  {
+    id: 'extra-basil',
+    name: 'Albahaca Fresca',
+    category: 'extra',
+    price: 1,
+    image: 'https://www.comato.cl/wp-content/uploads/2024/11/albahaca_comato__-300x300.png',
+  },
+  {
+    id: 'extra-oregano',
+    name: 'Orégano',
+    category: 'extra',
+    price: 0,
+    image: 'https://paprimur.es/wp-content/uploads/2024/03/OREGANO.png',
+  },
+  {
+    id: 'extra-garlic',
+    name: 'Ajo',
+    category: 'extra',
+    price: 1,
+    image: 'https://bcfoods.com/wp-content/uploads/2025/07/chopped-garlic_web2025.png',
+  },
+  {
+    id: 'extra-chili',
+    name: 'Chile',
+    category: 'extra',
+    price: 1,
+    image: 'https://static.vecteezy.com/system/resources/thumbnails/070/053/272/small/vibrant-green-chili-and-sliced-segments-isolated-on-transparent-png.png',
+  },
 ];

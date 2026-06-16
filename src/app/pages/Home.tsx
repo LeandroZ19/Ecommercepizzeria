@@ -25,6 +25,13 @@ import SlickArrow from '../components/SlickArrow';
 export default function Home() {
   const { addToCart } = useCart();
 
+  /**
+   * sliderSettings — Configuración del carrusel de pizzas más pedidas.
+   *
+   * Cambios para móvil:
+   * - breakpoint 640px (sm) → 1 slide (antes 480px, que permitía 2 en algunos dispositivos)
+   * - Se usa className="slick-equal-height" en el Slider para igualar alturas vía CSS flex
+   */
   const sliderSettings = {
     dots: true,
     infinite: true,
@@ -40,23 +47,28 @@ export default function Home() {
         breakpoint: 1024,
         settings: {
           slidesToShow: 3,
-        }
+        },
       },
       {
         breakpoint: 768,
         settings: {
           slidesToShow: 2,
-        }
+        },
       },
       {
-        breakpoint: 480,
+        /** A partir de 640 px o menos siempre mostrar 1 tarjeta */
+        breakpoint: 640,
         settings: {
           slidesToShow: 1,
-        }
-      }
-    ]
+        },
+      },
+    ],
   };
 
+  /**
+   * comboSliderSettings — Configuración del carrusel de combos familiares.
+   * En móvil siempre 1 tarjeta para evitar que se corten.
+   */
   const comboSliderSettings = {
     ...sliderSettings,
     slidesToShow: 3,
@@ -65,15 +77,15 @@ export default function Home() {
         breakpoint: 1024,
         settings: {
           slidesToShow: 2,
-        }
+        },
       },
       {
         breakpoint: 768,
         settings: {
           slidesToShow: 1,
-        }
-      }
-    ]
+        },
+      },
+    ],
   };
 
   return (
@@ -229,14 +241,24 @@ export default function Home() {
             </p>
           </motion.div>
 
+          {/*
+           * slick-equal-height: clase CSS personalizada (theme.css) que
+           * convierte .slick-track en flex y .slick-slide en height:auto
+           * para que todas las tarjetas de una fila tengan la misma altura.
+           */}
           <div className="relative px-6 md:px-8">
-            <Slider {...sliderSettings}>
+            <Slider {...sliderSettings} className="slick-equal-height">
               {popularPizzas.map((pizza) => (
-                <div key={pizza.id} className="px-2 md:px-3 h-full">
-                  {/* h-full + flex flex-col garantiza tarjetas de igual altura en el carrusel */}
-                  <div className="bg-card rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow group flex flex-col h-full">
-                    {/* Imagen con aspect ratio fijo */}
-                    <div className="relative overflow-hidden flex-shrink-0" style={{ paddingBottom: '75%', position: 'relative' }}>
+                <div key={pizza.id} className="px-2 md:px-3">
+                  {/*
+                   * Tarjeta auto-contenida: no usa flex-1 en la descripción
+                   * para evitar que se estire. La imagen usa padding-bottom
+                   * trick para mantener aspect-ratio 4/3 sin importar el
+                   * ancho del slide.
+                   */}
+                  <div className="bg-card rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow group slick-card">
+                    {/* Imagen — aspect ratio 4/3 sin flex-1 */}
+                    <div className="relative overflow-hidden flex-shrink-0" style={{ paddingBottom: '75%' }}>
                       <img
                         src={pizza.image}
                         alt={pizza.name}
@@ -247,15 +269,16 @@ export default function Home() {
                         S/ {pizza.price.toFixed(2)}
                       </div>
                     </div>
-                    {/* Contenido con flex-1 para igualar altura */}
-                    <div className="p-4 flex flex-col flex-1">
+                    {/* Contenido — descripción con line-clamp-2, SIN flex-1 */}
+                    <div className="p-4 flex flex-col">
                       <h3 className="font-display text-sm md:text-base font-bold mb-1.5 line-clamp-1">
                         {pizza.name}
                       </h3>
-                      {/* Descripción con altura fija — 3 líneas siempre */}
-                      <p className="text-xs text-muted-foreground mb-3 line-clamp-2 flex-1 leading-relaxed">
+                      {/* 2 líneas de descripción fijas, nunca corta los botones */}
+                      <p className="text-xs text-muted-foreground mb-3 line-clamp-2 leading-relaxed">
                         {pizza.description}
                       </p>
+                      {/* Botones siempre visibles al fondo con mt-auto */}
                       <div className="flex gap-1.5 mt-auto">
                         <Link to={`/producto/${pizza.detailId ?? pizza.id}`} className="flex-1">
                           <Button variant="outline" className="w-full h-8 text-xs" size="sm">
@@ -293,11 +316,12 @@ export default function Home() {
           </motion.div>
 
           <div className="relative px-6 md:px-8">
-            <Slider {...comboSliderSettings}>
+            <Slider {...comboSliderSettings} className="slick-equal-height">
               {familyCombos.map((combo) => (
-                <div key={combo.id} className="px-2 md:px-3 h-full">
-                  <div className="bg-card rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow group flex flex-col h-full">
-                    <div className="relative flex-shrink-0" style={{ paddingBottom: '75%', position: 'relative' }}>
+                <div key={combo.id} className="px-2 md:px-3">
+                  {/* Tarjeta auto-contenida — igual estructura que las pizzas */}
+                  <div className="bg-card rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow group slick-card">
+                    <div className="relative flex-shrink-0" style={{ paddingBottom: '75%' }}>
                       <img
                         src={combo.image}
                         alt={combo.name}
@@ -308,13 +332,15 @@ export default function Home() {
                         S/ {combo.price.toFixed(2)}
                       </div>
                     </div>
-                    <div className="p-4 flex flex-col flex-1">
+                    <div className="p-4 flex flex-col">
                       <h3 className="font-display text-sm md:text-base font-bold mb-1.5 line-clamp-1">
                         {combo.name}
                       </h3>
-                      <p className="text-xs text-muted-foreground mb-3 line-clamp-2 flex-1 leading-relaxed">
+                      {/* Descripción fija — 2 líneas, sin flex-1 */}
+                      <p className="text-xs text-muted-foreground mb-3 line-clamp-2 leading-relaxed">
                         {combo.description}
                       </p>
+                      {/* Botones siempre al fondo */}
                       <div className="flex gap-1.5 mt-auto">
                         <Link to={`/producto/${combo.id}`} className="flex-1">
                           <Button variant="outline" className="w-full h-8 text-xs" size="sm">
