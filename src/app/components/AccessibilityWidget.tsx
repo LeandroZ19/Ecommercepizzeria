@@ -11,14 +11,12 @@
  * - Interlineado ampliado
  * - Lectura en voz alta (Web Speech API) — similar a Microsoft Narrator
  *
- * Todos los estados se persisten en localStorage para mantenerlos
- * entre navegaciones.
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import { X, RotateCcw, Volume2, Loader2 } from 'lucide-react';
 
-// ─── Tipos ────────────────────────────────────────────────────────────────────
+// Tipos
 
 type Profile = 'none' | 'vision-baja' | 'dislexia' | 'tdha' | 'daltonismo';
 
@@ -75,7 +73,7 @@ function applyState(s: A11yState) {
   root.classList.toggle('a11y-reading-mask', s.readingMask);
 }
 
-// ─── Presets de perfiles ──────────────────────────────────────────────────────
+// Presets de perfiles
 
 const PROFILE_PRESETS: Record<Profile, Partial<A11yState>> = {
   none: {},
@@ -85,7 +83,7 @@ const PROFILE_PRESETS: Record<Profile, Partial<A11yState>> = {
   daltonismo: { contrast: 1 },
 };
 
-// ─── TTS helpers ──────────────────────────────────────────────────────────────
+// TTS helpers
 
 /**
  * Extrae el texto visible de la página, ignorando nav y scripts.
@@ -104,7 +102,7 @@ function extractPageText(): string {
   return clone.innerText.replace(/\s+/g, ' ').trim();
 }
 
-// ─── Componente principal ─────────────────────────────────────────────────────
+// Componente principal
 
 /** Widget flotante de accesibilidad */
 export default function AccessibilityWidget() {

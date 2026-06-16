@@ -1,41 +1,19 @@
-/**
- * BoletaPDF — Professional PDF receipt generator for RapiPizza.
- *
- * Uses jsPDF client-side (no backend) to generate a purchase receipt
- * that downloads automatically as `boleta-rapipizza-XXXXXX.pdf`.
- *
- * IMPORTANT — jsPDF Helvetica font limitation:
- *   Helvetica only supports pure ASCII characters (codepoints 32–126).
- *   Spanish accented characters (á,é,í,ó,ú,ñ,ü,¡,¿) and emojis render as
- *   corrupted garbage (e.g. "Ø<ßU", "RA P I P I Z").
- *   All strings MUST be sanitised with safeStr() before calling doc.text().
- *
- * PDF layout (top to bottom):
- *   - Orange header band with brand name
- *   - Dark banner "BOLETA DE VENTA ELECTRONICA"
- *   - Order details block (left) + customer info block (right)
- *   - Product table with alternating row colours
- *   - Totals section with highlighted grand total
- *   - Thank-you message box
- *   - Orange footer pinned to the bottom of the page
- */
-
 import jsPDF from 'jspdf';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Tipos 
 
-/** A single product line item in the receipt. */
+/** Un solo artículo en el recibo. */
 export interface BoletaItem {
   name:     string;
   quantity: number;
   price:    number;
 }
 
-/** Full payload required to generate a receipt PDF. */
+/** Se requiere la carga útil completa para generar un recibo en formato PDF. */
 export interface BoletaData {
-  /** UUID of the order (used to generate the short receipt number) */
+  /** UUID del pedido (utilizado para generar el número de recibo corto) */
   orderId:        string;
-  /** ISO 8601 date string of when the order was placed */
+  /** Cadena de fecha ISO 8601 que indica cuándo se realizó el pedido */
   date:           string;
   customerName:   string;
   customerEmail:  string;
@@ -47,54 +25,54 @@ export interface BoletaData {
   /** Tiempo estimado de entrega, ej. '25-35 min' o 'Recojo en tienda' */
   estimatedTime?: string;
   items:          BoletaItem[];
-  /** Sum of item prices before discounts */
+  /** Suma de los precios de los artículos antes de los descuentos */
   subtotal:       number;
-  /** Total discount amount */
+  /** Importe total del descuento */
   discount:       number;
-  /** Applied coupon code, if any */
+  /** Código de cupón aplicado, si corresponde */
   couponCode?:    string | null;
-  /** Delivery fee (0 for pickup or free delivery) */
+  /** Gastos de envío (0 para recogida o envío gratuito) */
   deliveryFee:    number;
-  /** Final total to charge the customer */
+  /** Total final a cobrar al cliente */
   total:          number;
 }
 
-// ─── Brand colours ────────────────────────────────────────────────────────────
+// Colores de la marca
 
-/** RapiPizza primary orange (#e25216) */
+/** RapiPizza naranja primario (#e25216) */
 const BRAND_ORANGE = [226, 82, 22]   as [number, number, number];
-/** Near-black for primary text */
+/** Casi negro para el texto principal */
 const BRAND_DARK   = [45, 37, 32]    as [number, number, number];
-/** Muted brown-grey for secondary text */
+/** Marrón grisáceo apagado para el texto secundario */
 const GRAY_MID     = [107, 93, 82]   as [number, number, number];
-/** Warm off-white for section backgrounds */
+/** Blanco roto cálido para fondos de sección */
 const GRAY_LIGHT   = [232, 222, 208] as [number, number, number];
-/** Pure white */
+/** Blanco puro */
 const WHITE        = [255, 255, 255] as [number, number, number];
 
-// ─── ASCII sanitiser ──────────────────────────────────────────────────────────
+// Sanitizador ASCII
 
 /**
  * Converts Spanish accented/special characters to their ASCII equivalents,
  * then strips any remaining non-ASCII characters (codepoints outside 32–126).
  *
- * This is MANDATORY for every string written with doc.text() because jsPDF's
- * built-in Helvetica font only renders pure ASCII — anything outside that range
- * produces corrupted output such as "Ø<ßU" or garbled box characters.
+ * Esto es OBLIGATORIO para cada cadena escrita con doc.text() porque jsPDF
+ * La fuente Helvetica integrada solo muestra ASCII puro; cualquier cosa fuera de ese rango.
+ * produce una salida corrupta como "Ø<ßU" o caracteres de cuadro distorsionados.
  *
- * Mapping applied:
- *   a/A vowels with accents  → a / A
- *   e/E vowels with accents  → e / E
- *   i/I vowels with accents  → i / I
- *   o/O vowels with accents  → o / O
- *   u/U vowels with accents  → u / U
- *   n/N with tilde           → n / N
- *   u/U with umlaut          → u / U
- *   inverted ! and ?         → ! and ?
- *   all other non-ASCII      → removed
+ * Mapeo aplicado:
+ *   a/A vocales con acentos  → a / A
+ *   e/E vocales con acentos  → e / E
+ *   i/I vocales con acentos  → i / I
+ *   o/O vocales con acentos  → o / O
+ *   u/U vocales con acentos  → u / U
+ *   n/N con tilde           → n / N
+ *   u/U con diéresis          → u / U
+ *   invertido ! y ?         → ! y ?
+ *   todos los demás no ASCII      → quitado
  *
- * @param text - Raw input string that may contain non-ASCII characters
- * @returns    Sanitised ASCII-only string safe for jsPDF Helvetica rendering
+ * @param text - Cadena de entrada sin formato que puede contener caracteres no ASCII.
+ * @returns    Cadena saneada solo en formato ASCII, segura para la representación de jsPDF Helvetica.
  *
  * @example
  * safeStr('¡Gracias por tu compra!')  // => '!Gracias por tu compra!'
@@ -103,36 +81,36 @@ const WHITE        = [255, 255, 255] as [number, number, number];
  */
 function safeStr(text: string): string {
   return text
-    // Lowercase accented vowels
+    // Vocales acentuadas en minúscula
     .replace(/[áàâã]/g, 'a')
     .replace(/[éèêë]/g, 'e')
     .replace(/[íìîï]/g, 'i')
     .replace(/[óòôõ]/g, 'o')
     .replace(/[úùûü]/g, 'u')
-    // Uppercase accented vowels
+    // Vocales acentuadas en mayúscula
     .replace(/[ÁÀÂÃ]/g, 'A')
     .replace(/[ÉÈÊË]/g, 'E')
     .replace(/[ÍÌÎÏ]/g, 'I')
     .replace(/[ÓÒÔÕ]/g, 'O')
     .replace(/[ÚÙÛÜ]/g, 'U')
-    // n/N with tilde
+    // n/N con tilde
     .replace(/ñ/g, 'n')
     .replace(/Ñ/g, 'N')
-    // Inverted punctuation (Spanish)
+    // Signos de puntuación invertidos (español)
     .replace(/¡/g, '!')
     .replace(/¿/g, '?')
-    // Remove ALL remaining non-ASCII characters (includes emojis, curly quotes, etc.)
+    // Elimine TODOS los caracteres no ASCII restantes (incluidos emojis, comillas rizadas, etc.).
     .replace(/[^\x20-\x7E]/g, '');
 }
 
-// ─── Helper utilities ─────────────────────────────────────────────────────────
+// Utilidades auxiliares
 
 /**
- * Formats an ISO date string into a localised date/time string.
- * Characters are sanitised with safeStr() before use in jsPDF.
+ * Formatea una cadena de fecha ISO en una cadena de fecha/hora localizada.
+ * Los caracteres se someten a un proceso de saneamiento con safeStr() antes de su uso en jsPDF.
  *
- * @param isoDate - ISO 8601 date string
- * @returns       Human-readable date string (ASCII-safe)
+ * @param isoDate - Cadena de fecha ISO 8601
+ * @returns       Cadena de fecha legible para humanos (compatible con ASCII)
  */
 function formatDate(isoDate: string): string {
   return safeStr(
@@ -144,21 +122,21 @@ function formatDate(isoDate: string): string {
 }
 
 /**
- * Formats a numeric amount as a PEN (Peruvian Sol) currency string.
+ * Formatea una cantidad numérica como una cadena de caracteres de la moneda PEN (sol peruano).
  *
- * @param amount - Numeric monetary amount
- * @returns       Formatted string like "S/ 25.90"
+ * @param amount - Cantidad monetaria numérica
+ * @returns       Cadena formateada como "S/ 25.90"
  */
 function formatCurrency(amount: number): string {
   return `S/ ${amount.toFixed(2)}`;
 }
 
 /**
- * Derives a short 10-character uppercase order reference from a UUID.
- * Removes hyphens and takes the first 10 characters.
+ * Deriva una referencia de pedido corta de 10 caracteres en mayúsculas a partir de un UUID.
+ * Elimina los guiones y toma los primeros 10 caracteres.
  *
- * @param id - Full UUID string
- * @returns   Short reference (e.g. "A1B2C3D4E5")
+ * @param id - Cadena UUID completa
+ * @returns   Referencia breve (p. ej., "A1B2C3D4E5")
  */
 function shortId(id: string): string {
   return id.replace(/-/g, '').slice(0, 10).toUpperCase();
@@ -167,21 +145,14 @@ function shortId(id: string): string {
 // ─── Main generator ───────────────────────────────────────────────────────────
 
 /**
- * Generates a professional receipt PDF and triggers an immediate download.
+ * Genera un recibo profesional en formato PDF y activa la descarga inmediata.
  *
- * All text is sanitised through `safeStr()` before rendering to prevent
- * character corruption with jsPDF's Helvetica font.
- * The footer is pinned to a fixed position at the bottom of the A4 page
- * regardless of content length.
+ * Todo el texto se sanitiza mediante `safeStr()` antes de su renderizado para evitar
+ * Corrupción de caracteres con la fuente Helvetica de jsPDF.
+ * El pie de página está fijado en una posición fija en la parte inferior de la página A4.
+ * independientemente de la extensión del contenido.
  *
- * @param data - Full order data to include in the receipt
- *
- * @example
- * generateBoletaPDF({
- *   orderId: 'uuid-here',
- *   date: new Date().toISOString(),
- *   customerName: 'Ana Torres',
- *   ...
+ * @param data - Incluir en el recibo todos los datos del pedido.
  * });
  */
 export function generateBoletaPDF(data: BoletaData): void {
@@ -195,23 +166,23 @@ export function generateBoletaPDF(data: BoletaData): void {
 
   let y = 0;
 
-  // ── Orange header band ──────────────────────────────────────────────────────
+  // Header Naranja
   doc.setFillColor(...BRAND_ORANGE);
   doc.rect(0, 0, pageW, 45, 'F');
 
-  // Brand name — ASCII only, no emoji
+  // Nombre de la marca
   doc.setTextColor(...WHITE);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(28);
   doc.text('RAPIPIZZA', pageW / 2, 18, { align: 'center' });
 
-  // Tagline and contact info
+  // Eslogan e información de contacto
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.text('Autentica Pizza Artesanal  |  Delivery y Recojo', pageW / 2, 26, { align: 'center' });
   doc.text('Av. Sucre 112 San Gabriel, Villa Maria del Triunfo  |  +51 903 582 008', pageW / 2, 32, { align: 'center' });
 
-  // ── Dark receipt title banner ───────────────────────────────────────────────
+  // Banner de título de recibo oscuro
   doc.setFillColor(...BRAND_DARK);
   doc.rect(0, 45, pageW, 12, 'F');
 
@@ -222,7 +193,7 @@ export function generateBoletaPDF(data: BoletaData): void {
 
   y = 65;
 
-  // ── Order details block ─────────────────────────────────────────────────────
+  // Bloque de detalles del pedido
   doc.setFillColor(...GRAY_LIGHT);
   doc.rect(marginL, y - 5, contentW, 38, 'F');
 
@@ -230,14 +201,14 @@ export function generateBoletaPDF(data: BoletaData): void {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
 
-  // Left column: order metadata labels
+  // Columna izquierda: etiquetas de metadatos de pedido
   doc.text('N. PEDIDO:',       marginL + 3, y + 2);
   doc.text('FECHA:',           marginL + 3, y + 9);
   doc.text('METODO DE PAGO:',  marginL + 3, y + 16);
   doc.text('TIPO DE ENTREGA:', marginL + 3, y + 23);
   if (data.estimatedTime) doc.text('TIEMPO EST.:', marginL + 3, y + 30);
 
-  // Left column: order metadata values
+  // Columna izquierda: valores de metadatos del pedido
   doc.setFont('helvetica', 'normal');
   doc.text(`#${shortId(data.orderId)}`, marginL + 37, y + 2);
   doc.text(formatDate(data.date),       marginL + 37, y + 9);
@@ -253,7 +224,7 @@ export function generateBoletaPDF(data: BoletaData): void {
     doc.text(safeStr(data.estimatedTime), marginL + 37, y + 30);
   }
 
-  // Right column: customer info
+  // Columna derecha: información del cliente
   const colR = pageW / 2 + 5;
   doc.setFont('helvetica', 'bold');
   doc.text('CLIENTE:',   colR, y + 2);
@@ -271,7 +242,7 @@ export function generateBoletaPDF(data: BoletaData): void {
 
   y += 45;
 
-  // ── Products table header ───────────────────────────────────────────────────
+  // Encabezado de la tabla de productos
   doc.setFillColor(...BRAND_DARK);
   doc.rect(marginL, y, contentW, 8, 'F');
 
@@ -285,19 +256,19 @@ export function generateBoletaPDF(data: BoletaData): void {
 
   y += 8;
 
-  // ── Product rows ────────────────────────────────────────────────────────────
+  // Filas de productos
   doc.setTextColor(...BRAND_DARK);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
 
   data.items.forEach((item, i) => {
     const rowH = 9;
-    // Alternate row background for readability
+    // Fondo de fila alterno para mayor legibilidad
     const bg = i % 2 === 0 ? WHITE : ([248, 244, 240] as [number, number, number]);
     doc.setFillColor(...bg);
     doc.rect(marginL, y, contentW, rowH, 'F');
 
-    // Truncate long product names and sanitise for ASCII
+    // Recortar nombres de productos largos y sanitizarlos para ASCII.
     const maxChars  = 38;
     const rawName   = safeStr(item.name);
     const itemName  = rawName.length > maxChars ? rawName.slice(0, maxChars) + '...' : rawName;
@@ -310,25 +281,25 @@ export function generateBoletaPDF(data: BoletaData): void {
     y += rowH;
   });
 
-  // Bottom border of the table
+  // Borde inferior de la tabla
   doc.setDrawColor(...GRAY_MID);
   doc.setLineWidth(0.3);
   doc.line(marginL, y, marginL + contentW, y);
 
   y += 6;
 
-  // ── Totals section ──────────────────────────────────────────────────────────
+  // Sección de totales
 
   const totalsX = pageW - marginR - 80;
   const valX    = pageW - marginR - 3;
 
   /**
-   * Renders a single totals row (label + right-aligned value).
+   * Muestra una única fila de totales (etiqueta + valor alineado a la derecha).
    *
-   * @param label - Row label text (will be rendered as-is, already ASCII-safe)
-   * @param value - Monetary value string
-   * @param bold  - Whether to render the label in bold
-   * @param color - Optional RGB colour for the row text
+   * @param label - Texto de etiqueta de fila
+   * @param value - Cadena de valor monetario
+   * @param bold  - Si se debe mostrar la etiqueta en negrita
+   * @param color - Color RGB opcional para el texto de la fila
    */
   const addTotalRow = (
     label: string,
@@ -359,13 +330,13 @@ export function generateBoletaPDF(data: BoletaData): void {
     addTotalRow('Costo de delivery:', 'GRATIS', false, [34, 150, 67]);
   }
 
-  // Divider line before grand total
+  // Línea divisoria antes del total general
   doc.setDrawColor(...BRAND_ORANGE);
   doc.setLineWidth(0.6);
   doc.line(totalsX - 3, y - 2, pageW - marginR, y - 2);
   y += 2;
 
-  // Highlighted grand total row (orange pill)
+  // Fila del total general resaltada (píldora naranja)
   doc.setFillColor(...BRAND_ORANGE);
   doc.roundedRect(totalsX - 5, y - 4, pageW - marginR - totalsX + 8, 12, 2, 2, 'F');
   doc.setTextColor(...WHITE);
@@ -376,14 +347,13 @@ export function generateBoletaPDF(data: BoletaData): void {
 
   y += 18;
 
-  // ── Thank-you message box ───────────────────────────────────────────────────
+  // Cuadro de mensaje de agradecimiento
   doc.setFillColor(...GRAY_LIGHT);
   doc.rect(marginL, y, contentW, 22, 'F');
 
   doc.setTextColor(...BRAND_DARK);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
-  // No emoji — safeStr would strip them; write plain ASCII message
   doc.text('!Gracias por tu compra!', pageW / 2, y + 8, { align: 'center' });
 
   doc.setFont('helvetica', 'normal');
@@ -398,8 +368,7 @@ export function generateBoletaPDF(data: BoletaData): void {
     pageW / 2, y + 19, { align: 'center' },
   );
 
-  // ── Footer — pinned to the bottom of the page ───────────────────────────────
-  // Always at a fixed Y position regardless of how many items are in the order.
+  // Footer
   const footerY = pageH - 12;
 
   doc.setFillColor(...BRAND_ORANGE);
@@ -414,7 +383,7 @@ export function generateBoletaPDF(data: BoletaData): void {
     { align: 'center' },
   );
 
-  // ── Save / download ─────────────────────────────────────────────────────────
+  // Descarga
   const filename = `boleta-rapipizza-${shortId(data.orderId)}.pdf`;
   doc.save(filename);
 }

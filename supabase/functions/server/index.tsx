@@ -1,16 +1,13 @@
 /**
- * RapiPizza — Hono Edge Function Server
- *
- * This edge function is intentionally minimal — only operations that require
- * the Supabase service role key (admin privileges) live here.
- * Everything else (profiles, orders, products) is handled by the frontend
- * using the Supabase JS client directly with Row Level Security.
+ * La clave del rol de servicio de Supabase (privilegios de administrador) reside aquí.
+ * Todo lo demás (perfiles, pedidos, productos) lo gestiona el frontend.
+ * utilizando el cliente Supabase JS directamente con seguridad a nivel de fila.
  *
  * Endpoints:
- *   GET   /health               — Health check
- *   POST  /auth/register        — Register user with email pre-confirmed (admin.createUser)
- *   POST  /products/seed        — Upsert all 30 products into the `products` table
- *   GET   /products             — Read products from the `products` table
+ *   GET   /health               — Estado
+ *   POST  /auth/register        — Registrar usuario con correo electrónico previamente confirmado (admin.createUser)
+ *   POST  /products/seed        — Inserta o actualiza los 30 productos en la tabla `products`.
+ *   GET   /products             — Lee los productos de la tabla `products`.
  *
  * Auth: Supabase Auth JWT validated with service role key.
  * Persistence: Supabase Postgres tables (not KV store).
@@ -23,7 +20,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2.49.8";
 
 const app = new Hono();
 
-// ── Middleware ────────────────────────────────────────────────────────────────
+// Middleware
 
 app.use("*", logger(console.log));
 app.use("/*", cors({
@@ -34,7 +31,7 @@ app.use("/*", cors({
   maxAge: 600,
 }));
 
-// ── Helper: cliente admin ─────────────────────────────────────────────────────
+// Helper: cliente admin 
 
 const adminClient = () =>
   createClient(
@@ -96,23 +93,23 @@ const PRODUCTS = [
   { id: "comp-3", name: "Crema Rapipizza", description: "2 tapecitos extra de crema de rocoto", price: 3.00, image: "https://images.rappi.pe/products/792a436e-8dc1-422f-87c5-d5abfc8e7b3c-1749448057134.png?d=600x600&e=webp", category: "side", subcategory: "complemento" },
 ];
 
-// ── Health ────────────────────────────────────────────────────────────────────
+// Estado
 
 app.get("/make-server-8a4cb832/health", (c) =>
   c.json({ status: "ok", service: "RapiPizza API", version: "2.0" }),
 );
 
-// ── Auth: Register ────────────────────────────────────────────────────────────
+//  Auth: Registrarse
 
 /**
  * POST /auth/register
  *
- * Creates a new Supabase Auth user with `email_confirm: true` (pre-confirmed)
- * so the user can log in immediately without checking their email.
- * Also upserts a row in the `profiles` table using the service role client.
+ * Crear usuario con cliente administrador: el correo electrónico se confirma automáticamente.
+ * De esta forma, el usuario puede iniciar sesión inmediatamente sin tener que consultar su correo electrónico.
+ * También inserta o actualiza una fila en la tabla `profiles` utilizando el cliente de rol de servicio.
  *
  * Body: { name, email, password, phone }
- * Returns: { user: { id, email, name, phone } }
+ * Retorna: { user: { id, email, name, phone } }
  */
 app.post("/make-server-8a4cb832/auth/register", async (c) => {
   try {
@@ -123,7 +120,7 @@ app.post("/make-server-8a4cb832/auth/register", async (c) => {
       return c.json({ error: "Missing required fields: name, email, password" }, 400);
     }
 
-    // Create user with admin client — email is automatically confirmed
+    // Crear usuario con cliente administrador: el correo electrónico se confirma automáticamente.
     const { data, error } = await adminClient().auth.admin.createUser({
       email,
       password,
@@ -136,8 +133,8 @@ app.post("/make-server-8a4cb832/auth/register", async (c) => {
       return c.json({ error: error.message }, 400);
     }
 
-    // Upsert profile row in the `profiles` table via the service role client
-    // (The `on_auth_user_created` trigger also does this, but explicit is safer)
+    // Actualizar o insertar una fila de perfil en la tabla `profiles` a través del cliente de rol de servicio.
+    // (El disparador `on_auth_user_created` también hace esto, pero es más seguro hacerlo de forma explícita).
     const db = adminClient();
     await db.from("profiles").upsert({
       id:      data.user.id,
@@ -159,11 +156,11 @@ app.post("/make-server-8a4cb832/auth/register", async (c) => {
 /**
  * POST /products/seed
  *
- * Upserts all 30 products into the `products` Supabase table.
- * Idempotent — safe to run multiple times (uses ON CONFLICT DO UPDATE).
- * Requires a valid Bearer token (anon or authenticated).
+ * Actualiza o inserta los 30 productos en la tabla `products` de Supabase.
+ * Idempotente: seguro para ejecutar varias veces (usa ON CONFLICT DO UPDATE).
+ * Requiere un token Bearer válido (anónimo o autenticado).
  *
- * Returns: { ok: true, count: number, seeded_at: string }
+ * Retorna { ok: true, count: number, seeded_at: string }
  */
 app.post("/make-server-8a4cb832/products/seed", async (c) => {
   try {
@@ -206,11 +203,11 @@ app.post("/make-server-8a4cb832/products/seed", async (c) => {
 /**
  * GET /products
  *
- * Returns all active products from the `products` table.
- * Falls back to the in-memory PRODUCTS constant if the table is empty
- * and automatically triggers a seed.
+ * Devuelve todos los productos activos de la tabla `products`.
+ * Si la tabla está vacía, recurre a la constante PRODUCTS almacenada en memoria.
+ * y activa automáticamente una semilla.
  *
- * Returns: { products: ProductRow[] }
+ * Retorna: { products: ProductRow[] }
  */
 app.get("/make-server-8a4cb832/products", async (c) => {
   try {
@@ -227,7 +224,7 @@ app.get("/make-server-8a4cb832/products", async (c) => {
     }
 
     if (!data || data.length === 0) {
-      // Table is empty — auto-seed and return in-memory list
+      // La tabla está vacía: inicializa automáticamente y devuelve la lista en memoria.
       console.log("Products table is empty — auto-seeding");
       const rows = PRODUCTS.map(p => ({
         id: p.id, name: p.name, description: p.description ?? null,

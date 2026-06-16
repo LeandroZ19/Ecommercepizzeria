@@ -55,7 +55,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
 
-  // Load cart from localStorage when user logs in
+  // Cargar el carrito desde el almacenamiento local cuando el usuario inicie sesión
   useEffect(() => {
     if (user) {
       const savedCart = localStorage.getItem(`cart_${user.id}`);
@@ -68,13 +68,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
       }
     } else {
-      // Clear cart when user logs out
+      // Vaciar el carrito cuando el usuario cierre sesión
       setItems([]);
       setAppliedCoupon(null);
     }
   }, [user]);
 
-  // Save cart to localStorage whenever items change
+  // Guarda el carrito en el almacenamiento local cada vez que cambien los artículos.
   useEffect(() => {
     if (user && items.length > 0) {
       localStorage.setItem(`cart_${user.id}`, JSON.stringify(items));

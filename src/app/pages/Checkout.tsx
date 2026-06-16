@@ -1,20 +1,9 @@
 /**
- * Checkout — Order finalisation page for RapiPizza.
- *
- * Requires an active session — redirects to /mi-cuenta when unauthenticated.
- *
- * Flow:
- *  1. Select delivery type (delivery / store pickup)
- *  2. Select district (with per-district delivery fee)
- *  3. Enter personal details and delivery address
- *  4. Choose payment method (card / cash on delivery)
- *  5. Confirm order
- *
- * Order persistence: writes directly to the `orders` and `order_items`
- * Supabase tables via the db.ts helper — no KV store, no localStorage.
- *
- * Uses CartContext for cart totals and AuthContext for user data.
- * Responsive: single column on mobile, 3-column grid on desktop.
+ * Requiere una sesión activa; redirige a /mi-cuenta cuando no está autenticado.
+ * Persistencia de pedidos: escribe directamente en `orders` y `order_items`.
+ * Tablas de Supabase a través del archivo auxiliar db.ts
+ * Utiliza CartContext para los totales del carrito y AuthContext para los datos del usuario.
+ * Adaptable: una sola columna en dispositivos móviles, cuadrícula de 3 columnas en ordenadores de escritorio.
  */
 
 import { motion } from 'motion/react';
