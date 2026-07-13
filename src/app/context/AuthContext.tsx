@@ -72,6 +72,7 @@ export interface User {
   email:   string;
   phone:   string;
   address: string;
+  role:    'customer' | 'admin' | 'delivery';
 }
 
 /** Un único artículo dentro de un pedido (utilizado en el historial de pedidos de MiCuenta). */
@@ -85,6 +86,7 @@ export interface OrderItem {
 /** Un pedido completo con sus artículos anidados. */
 export interface Order {
   id:              string;
+  order_number:    number | null;
   /** Cadena de fecha ISO que indica cuándo se realizó el pedido */
   date:            string;
   total:           number;
@@ -135,6 +137,7 @@ async function buildUserFromSession(session: Session): Promise<User> {
     email:   session.user.email            ?? '',
     phone:   meta.phone   ?? meta.phone_number ?? '',
     address: meta.address ?? '',
+    role:    'customer',
   };
 
   // Intenta cargar datos más completos desde la tabla de perfiles.
@@ -146,6 +149,7 @@ async function buildUserFromSession(session: Session): Promise<User> {
         name:    profile.name    || base.name,
         phone:   profile.phone   || base.phone,
         address: profile.address || base.address,
+        role:    profile.role    || 'customer',
       };
     }
   } catch {
@@ -377,6 +381,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const mapped: Order[] = (rows ?? []).map(o => ({
         id:             o.id,
+        order_number:   o.order_number ?? null,
         date:           o.created_at,
         total:          o.total,
         status:         o.status,

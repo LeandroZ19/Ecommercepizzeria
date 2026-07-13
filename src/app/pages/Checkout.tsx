@@ -1,23 +1,22 @@
 /**
- * Requiere una sesión activa; redirige a /mi-cuenta cuando no está autenticado.
- * Persistencia de pedidos: escribe directamente en `orders` y `order_items`.
- * Tablas de Supabase a través del archivo auxiliar db.ts
- * Utiliza CartContext para los totales del carrito y AuthContext para los datos del usuario.
- * Adaptable: una sola columna en dispositivos móviles, cuadrícula de 3 columnas en ordenadores de escritorio.
+ * Checkout — Finalización de pedido.
+ * Requiere sesión activa; redirige a /mi-cuenta cuando no está autenticado.
+ * Persistencia: escribe directamente en `orders` y `order_items` de Supabase.
+ * NO hay delivery gratis — siempre se cobra la tarifa del distrito.
  */
 
 import { motion } from 'motion/react';
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, Link } from 'react-router';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { createOrder, checkUserHasOrders } from '../../../utils/supabase/db';
+import { createOrder } from '../../../utils/supabase/db';
 import { generateBoletaPDF } from '../components/BoletaPDF';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group';
-import { CreditCard, Banknote, Truck, Store, CheckCircle, Download, Gift } from 'lucide-react';
+import { CreditCard, Banknote, Truck, Store, CheckCircle, Download, Hash, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import DistrictSelector, { districts } from '../components/DistrictSelector';
 
@@ -26,7 +25,6 @@ export default function Checkout() {
   const { user, refreshOrders } = useAuth();
   const navigate = useNavigate();
 
-  // Si no hay sesión, redirigir
   useEffect(() => {
     if (!user) {
       toast.error('Debes iniciar sesión para continuar');
@@ -34,16 +32,11 @@ export default function Checkout() {
     }
   }, [user, navigate]);
 
-  const [deliveryType,       setDeliveryType]       = useState<'delivery' | 'pickup'>('delivery');
-  const [paymentMethod,      setPaymentMethod]       = useState<'card' | 'cash'>('card');
-  const [isProcessing,       setIsProcessing]        = useState(false);
-  const [selectedDistrict,   setSelectedDistrict]    = useState('');
-  /**
-   * isFirstOrder — true si el usuario no tiene pedidos anteriores.
-   * Cuando es true y elige delivery, el costo de envío es GRATIS
-   * (promoción de primer pedido para usuarios nuevos).
-   */
-  const [isFirstOrder, setIsFirstOrder] = useState(false);
+  const [deliveryType,     setDeliveryType]     = useState<'delivery' | 'pickup'>('delivery');
+  const [paymentMethod,    setPaymentMethod]     = useState<'card' | 'cash'>('card');
+  const [isProcessing,     setIsProcessing]      = useState(false);
+  const [selectedDistrict, setSelectedDistrict]  = useState('');
+  const [confirmedOrder,   setConfirmedOrder]    = useState<{ id: string; orderNumber: number | null } | null>(null);
 
   const [formData, setFormData] = useState({
     name:       user?.name    || '',
@@ -55,28 +48,12 @@ export default function Checkout() {
     cardCvv:    '',
   });
 
-  // Verificar si es el primer pedido del usuario al montar
-  useEffect(() => {
-    if (!user) return;
-    checkUserHasOrders().then(({ hasOrders }) => setIsFirstOrder(!hasOrders));
-  }, [user]);
-
-  // ── Cálculos de totales ────────────────────────────────────────────────────
-
-  const total              = getTotal();
-  const discount           = getDiscount();
+  const total                 = getTotal();
+  const discount              = getDiscount();
   const subtotalAfterDiscount = getFinalTotal();
-  const districtData       = districts.find(d => d.name === selectedDistrict);
-
-  /**
-   * Tarifa de delivery efectiva:
-   * - 0 si tipo = recojo en tienda
-   * - 0 si es el primer pedido del usuario (promoción bienvenida)
-   * - tarifa del distrito en caso contrario
-   */
-  const baseDeliveryFee    = deliveryType === 'delivery' ? (districtData?.deliveryFee ?? 0) : 0;
-  const deliveryFee        = (deliveryType === 'delivery' && isFirstOrder) ? 0 : baseDeliveryFee;
-  const finalTotal         = subtotalAfterDiscount + deliveryFee;
+  const districtData          = districts.find(d => d.name === selectedDistrict);
+  const deliveryFee           = deliveryType === 'delivery' ? (districtData?.deliveryFee ?? 0) : 0;
+  const finalTotal            = subtotalAfterDiscount + deliveryFee;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -90,8 +67,6 @@ export default function Checkout() {
     const orderDate = new Date().toISOString();
 
     try {
-      // Save the order directly to the Supabase `orders` and `order_items` tables.
-      // createOrder() inserts the header row first, then batch-inserts all line items.
       const { data: savedOrder, error: orderErr } = await createOrder({
         userId:        user.id,
         items: items.map(item => ({
@@ -102,7 +77,7 @@ export default function Checkout() {
           quantity:     item.quantity,
         })),
         total:         finalTotal,
-        subtotal:      getTotal(),
+        subtotal:      total,
         discount,
         deliveryFee,
         district:      selectedDistrict || '',
@@ -118,12 +93,12 @@ export default function Checkout() {
         console.error('[checkout] createOrder error:', orderErr);
       }
 
-      // Use the DB-assigned UUID if available; otherwise fall back to a local one
       const confirmedOrderId = savedOrder?.id ?? crypto.randomUUID();
+      const orderNumber      = savedOrder?.order_number ?? null;
 
-      // Generate and auto-download the PDF receipt (includes estimated time)
       generateBoletaPDF({
         orderId:        confirmedOrderId,
+        orderNumber,
         date:           orderDate,
         customerName:   user.name,
         customerEmail:  user.email,
@@ -138,30 +113,81 @@ export default function Checkout() {
           quantity: item.quantity,
           price:    item.price,
         })),
-        subtotal:   getTotal(),
+        subtotal:   total,
         discount,
         couponCode: appliedCoupon?.code,
         deliveryFee,
         total:      finalTotal,
       });
 
+      clearCart();
+      await refreshOrders();
+      setConfirmedOrder({ id: confirmedOrderId, orderNumber });
+
     } catch (err) {
       console.error('[checkout] Unexpected error:', err);
-      // Do not block the user — proceed to success flow
+      toast.error('Error al procesar el pedido. Intenta nuevamente.');
     }
 
-    toast.success('¡Pedido realizado! La boleta se descargó automáticamente 🧾', {
-      icon: <CheckCircle className="w-4 h-4" />,
-      duration: 5000,
-    });
-
-    clearCart();
     setIsProcessing(false);
-
-    // Refrescar historial de pedidos para que aparezca inmediatamente en Mi Cuenta
-    refreshOrders();
-    navigate('/mi-cuenta');
   };
+
+  // Pantalla de confirmación con número de cola virtual
+  if (confirmedOrder) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center py-16">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-card rounded-2xl p-10 shadow-2xl border border-border text-center max-w-md w-full mx-4"
+        >
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2, type: 'spring' }}
+            className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6"
+          >
+            <CheckCircle className="w-10 h-10 text-green-600" />
+          </motion.div>
+
+          <h1 className="font-display text-3xl font-bold mb-2">¡Pedido Confirmado!</h1>
+          <p className="text-muted-foreground mb-8">Tu pedido ha sido recibido y está siendo procesado</p>
+
+          {confirmedOrder.orderNumber && (
+            <div className="bg-primary/10 rounded-xl p-6 mb-6">
+              <p className="text-sm text-muted-foreground mb-1 flex items-center justify-center gap-1">
+                <Hash className="w-4 h-4" />
+                Número de Cola Virtual
+              </p>
+              <p className="font-display text-5xl font-bold text-primary">
+                #{confirmedOrder.orderNumber}
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                Guarda este número para rastrear tu pedido
+              </p>
+            </div>
+          )}
+
+          <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground mb-8">
+            <Download className="w-3 h-3" />
+            <span>La boleta se descargó automáticamente en PDF</span>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <Button asChild className="w-full gap-2">
+              <Link to="/mi-cuenta">
+                <Package className="w-4 h-4" />
+                Ver mis pedidos
+              </Link>
+            </Button>
+            <Button variant="outline" asChild className="w-full">
+              <Link to="/menu">Seguir comprando</Link>
+            </Button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     navigate('/carrito');
@@ -195,12 +221,10 @@ export default function Checkout() {
                 transition={{ delay: 0.2 }}
                 className="bg-card rounded-xl p-6 shadow-md border border-border"
               >
-                <h2 className="font-display text-2xl font-bold mb-6">
-                  Tipo de Entrega
-                </h2>
+                <h2 className="font-display text-2xl font-bold mb-6">Tipo de Entrega</h2>
                 <RadioGroup
                   value={deliveryType}
-                  onValueChange={(value) => setDeliveryType(value as any)}
+                  onValueChange={(value) => setDeliveryType(value as 'delivery' | 'pickup')}
                   className="space-y-3"
                 >
                   <div className="flex items-center space-x-3 border border-border rounded-lg p-4 hover:bg-muted/50 transition-colors">
@@ -210,7 +234,9 @@ export default function Checkout() {
                       <div>
                         <div className="font-medium">Delivery</div>
                         <div className="text-sm text-muted-foreground">
-                          {selectedDistrict ? `S/ ${deliveryFee.toFixed(2)}` : 'Selecciona tu distrito'}
+                          {selectedDistrict
+                            ? (deliveryFee > 0 ? `S/ ${deliveryFee.toFixed(2)}` : 'Selecciona tu distrito')
+                            : 'Selecciona tu distrito'}
                         </div>
                       </div>
                     </Label>
@@ -221,7 +247,7 @@ export default function Checkout() {
                       <Store className="w-5 h-5 text-primary" />
                       <div>
                         <div className="font-medium">Recojo en tienda</div>
-                        <div className="text-sm text-muted-foreground">Gratis</div>
+                        <div className="text-sm text-muted-foreground">Sin costo</div>
                       </div>
                     </Label>
                   </div>
@@ -256,12 +282,10 @@ export default function Checkout() {
                 transition={{ delay: 0.3 }}
                 className="bg-card rounded-xl p-6 shadow-md border border-border"
               >
-                <h2 className="font-display text-2xl font-bold mb-6">
-                  Método de Pago
-                </h2>
+                <h2 className="font-display text-2xl font-bold mb-6">Método de Pago</h2>
                 <RadioGroup
                   value={paymentMethod}
-                  onValueChange={(value) => setPaymentMethod(value as any)}
+                  onValueChange={(value) => setPaymentMethod(value as 'card' | 'cash')}
                   className="space-y-3 mb-4"
                 >
                   <div className="flex items-center space-x-3 border border-border rounded-lg p-4 hover:bg-muted/50 transition-colors">
@@ -334,31 +358,23 @@ export default function Checkout() {
               className="lg:col-span-1"
             >
               <div className="bg-card rounded-xl p-6 shadow-lg border border-border sticky top-24">
-                <h2 className="font-display text-2xl font-bold mb-6">
-                  Tu Pedido
-                </h2>
+                <h2 className="font-display text-2xl font-bold mb-6">Tu Pedido</h2>
 
                 <div className="space-y-3 mb-6 max-h-60 overflow-y-auto">
                   {items.map((item) => (
                     <div key={item.id} className="flex justify-between text-sm">
-                      <span>
-                        {item.name} × {item.quantity}
-                      </span>
-                      <span className="font-medium">
-                        S/ {(item.price * item.quantity).toFixed(2)}
-                      </span>
+                      <span>{item.name} × {item.quantity}</span>
+                      <span className="font-medium">S/ {(item.price * item.quantity).toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
 
                 <div className="space-y-3 py-4 border-y border-border">
-                  {/* Subtotal */}
                   <div className="flex justify-between text-muted-foreground text-sm">
                     <span>Subtotal</span>
                     <span>S/ {total.toFixed(2)}</span>
                   </div>
 
-                  {/* Descuento por cupón */}
                   {appliedCoupon && (
                     <div className="flex justify-between text-green-600 text-sm">
                       <span>Descuento ({appliedCoupon.code})</span>
@@ -366,30 +382,20 @@ export default function Checkout() {
                     </div>
                   )}
 
-                  {/* Línea de envío — solo muestra cuando es relevante */}
                   {deliveryType === 'delivery' ? (
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Delivery</span>
-                      <span>
-                        {deliveryFee === 0 ? (
-                          <span className="text-green-600 font-medium flex items-center gap-1">
-                            <Gift className="w-3 h-3" />
-                            {isFirstOrder ? 'Gratis (1er pedido)' : 'Gratis'}
-                          </span>
-                        ) : (
-                          <span className="font-medium">S/ {deliveryFee.toFixed(2)}</span>
-                        )}
+                      <span className="font-medium">
+                        {deliveryFee > 0 ? `S/ ${deliveryFee.toFixed(2)}` : '—'}
                       </span>
                     </div>
                   ) : (
-                    /* Recojo en tienda — no hay costo de envío */
                     <div className="flex justify-between text-sm text-muted-foreground">
                       <span>Recojo en tienda</span>
                       <span className="text-green-600 font-medium">Sin costo</span>
                     </div>
                   )}
 
-                  {/* Tiempo estimado */}
                   {deliveryType === 'delivery' && districtData && (
                     <div className="flex justify-between text-xs text-muted-foreground">
                       <span>Tiempo estimado</span>

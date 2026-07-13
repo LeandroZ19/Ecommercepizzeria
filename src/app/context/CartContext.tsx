@@ -130,10 +130,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const applyCoupon = (code: string): boolean => {
     const validCoupons = [
-      { code: 'PROMO10',  discount: 10 },
-      { code: 'PRIMERA',  discount: 15 },
-      { code: 'FAMILIA25', discount: 25 },
-      { code: 'HAPPY20',   discount: 20 },
+      { code: 'PROMO10',    discount: 10 },
+      { code: 'PRIMERA',    discount: 15 },
+      { code: 'FAMILIA25',  discount: 25 },
+      { code: 'HAPPY20',    discount: 20 },
+      { code: 'PARTY15',    discount: 15 },
+      { code: 'INVIERNO20', discount: 20 },
+      { code: 'PERU15',     discount: 15 },
+      { code: 'ESCOLAR10',  discount: 10 },
+      { code: 'NAVIDAD25',  discount: 25 },
     ];
 
     const coupon = validCoupons.find(

@@ -20,6 +20,7 @@ import {
   Menu,
   X,
   Pizza,
+  Shield,
 } from "lucide-react";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
@@ -47,6 +48,8 @@ export default function Layout() {
   const authNavLinks = [
     { name: "Mis Pedidos", path: "/mi-cuenta", requiresAuth: true },
   ];
+
+  const isAdminOrDelivery = user?.role === 'admin' || user?.role === 'delivery';
 
   const isActive = (path: string) => {
     return location.pathname === path;
@@ -122,6 +125,22 @@ export default function Layout() {
                   </Link>
                 </motion.div>
               ))}
+              {isAdminOrDelivery && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
+                  <Link
+                    to="/admin"
+                    className={`text-sm font-medium transition-all hover:text-accent relative flex items-center gap-1 ${
+                      isActive("/admin") ? "text-accent" : ""
+                    }`}
+                  >
+                    <Shield className="w-3.5 h-3.5" />
+                    Admin
+                  </Link>
+                </motion.div>
+              )}
             </nav>
 
             {/* Actions */}
@@ -203,6 +222,18 @@ export default function Layout() {
                     {link.name}
                   </Link>
                 ))}
+                {isAdminOrDelivery && (
+                  <Link
+                    to="/admin"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`text-sm font-medium transition-colors hover:text-accent flex items-center gap-1 ${
+                      isActive("/admin") ? "text-accent" : ""
+                    }`}
+                  >
+                    <Shield className="w-4 h-4" />
+                    Admin
+                  </Link>
+                )}
                 <Link
                   to="/mi-cuenta"
                   onClick={() => setMobileMenuOpen(false)}

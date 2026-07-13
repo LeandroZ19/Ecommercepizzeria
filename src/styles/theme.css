@@ -181,7 +181,7 @@
 
 html {
   font-size: var(--a11y-font-size) !important;
-  line-height: var(--a11y-line-height);
+  line-height: var(--a11y-line-height) !important;
 }
 
 .a11y-contrast-high {
@@ -226,46 +226,50 @@ html {
   h1 {
     font-size: var(--text-2xl);
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: inherit;
     font-family: var(--font-display);
   }
 
   h2 {
     font-size: var(--text-xl);
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: inherit;
     font-family: var(--font-display);
   }
 
   h3 {
     font-size: var(--text-lg);
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: inherit;
     font-family: var(--font-display);
   }
 
   h4 {
     font-size: var(--text-base);
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: inherit;
     font-family: var(--font-display);
   }
 
   label {
     font-size: var(--text-base);
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: inherit;
   }
 
   button {
     font-size: var(--text-base);
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: inherit;
   }
 
   input {
     font-size: var(--text-base);
     font-weight: var(--font-weight-normal);
-    line-height: 1.5;
+    line-height: inherit;
+  }
+
+  p, li, span, div, td, th {
+    line-height: inherit;
   }
 }

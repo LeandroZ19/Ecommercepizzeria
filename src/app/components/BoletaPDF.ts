@@ -13,6 +13,8 @@ export interface BoletaItem {
 export interface BoletaData {
   /** UUID del pedido (utilizado para generar el número de recibo corto) */
   orderId:        string;
+  /** Número de cola virtual (e.g. 1001) */
+  orderNumber?:   number | null;
   /** Cadena de fecha ISO 8601 que indica cuándo se realizó el pedido */
   date:           string;
   customerName:   string;
@@ -203,26 +205,27 @@ export function generateBoletaPDF(data: BoletaData): void {
 
   // Columna izquierda: etiquetas de metadatos de pedido
   doc.text('N. PEDIDO:',       marginL + 3, y + 2);
-  doc.text('FECHA:',           marginL + 3, y + 9);
-  doc.text('METODO DE PAGO:',  marginL + 3, y + 16);
-  doc.text('TIPO DE ENTREGA:', marginL + 3, y + 23);
-  if (data.estimatedTime) doc.text('TIEMPO EST.:', marginL + 3, y + 30);
+  if (data.orderNumber) doc.text('N. COLA VIRTUAL:', marginL + 3, y + 9);
+  doc.text('FECHA:',           marginL + 3, data.orderNumber ? y + 16 : y + 9);
+  doc.text('METODO DE PAGO:',  marginL + 3, data.orderNumber ? y + 23 : y + 16);
+  doc.text('TIPO DE ENTREGA:', marginL + 3, data.orderNumber ? y + 30 : y + 23);
 
   // Columna izquierda: valores de metadatos del pedido
   doc.setFont('helvetica', 'normal');
-  doc.text(`#${shortId(data.orderId)}`, marginL + 37, y + 2);
-  doc.text(formatDate(data.date),       marginL + 37, y + 9);
+  doc.text(`#${shortId(data.orderId)}`, marginL + 40, y + 2);
+  if (data.orderNumber) {
+    doc.text(`#${data.orderNumber}`, marginL + 40, y + 9);
+  }
+  const dateOffset = data.orderNumber ? 16 : 9;
+  doc.text(formatDate(data.date),       marginL + 40, y + dateOffset);
   doc.text(
     data.paymentMethod === 'card' ? 'Tarjeta de credito/debito' : 'Efectivo contra entrega',
-    marginL + 37, y + 16,
+    marginL + 40, y + dateOffset + 7,
   );
   doc.text(
     data.deliveryType === 'delivery' ? 'Delivery a domicilio' : 'Recojo en tienda',
-    marginL + 37, y + 23,
+    marginL + 40, y + dateOffset + 14,
   );
-  if (data.estimatedTime) {
-    doc.text(safeStr(data.estimatedTime), marginL + 37, y + 30);
-  }
 
   // Columna derecha: información del cliente
   const colR = pageW / 2 + 5;
