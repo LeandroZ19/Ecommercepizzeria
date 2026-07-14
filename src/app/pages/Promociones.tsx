@@ -290,24 +290,26 @@ export default function Promociones() {
         {!loading && (
           <Tabs defaultValue="daily" className="w-full">
             {/* Navegación de tabs — scroll horizontal en móvil */}
-            <TabsList className="flex overflow-x-auto scrollbar-hide gap-1 mb-6 w-full h-auto p-1">
-              <TabsTrigger value="daily" className="flex-shrink-0 gap-1.5 text-xs md:text-sm">
+            <div className="overflow-x-auto pb-1 mb-6 -mx-1">
+            <TabsList className="flex w-max min-w-full gap-1 h-auto p-1">
+              <TabsTrigger value="daily" className="flex-shrink-0 gap-1.5 text-xs md:text-sm whitespace-nowrap">
                 <Calendar className="w-3.5 h-3.5" />
                 Ofertas del Dia ({dailyPromos.length})
               </TabsTrigger>
-              <TabsTrigger value="combos" className="flex-shrink-0 gap-1.5 text-xs md:text-sm">
+              <TabsTrigger value="combos" className="flex-shrink-0 gap-1.5 text-xs md:text-sm whitespace-nowrap">
                 <Gift className="w-3.5 h-3.5" />
                 Combos ({comboPromos.length})
               </TabsTrigger>
-              <TabsTrigger value="seasonal" className="flex-shrink-0 gap-1.5 text-xs md:text-sm">
+              <TabsTrigger value="seasonal" className="flex-shrink-0 gap-1.5 text-xs md:text-sm whitespace-nowrap">
                 <Sparkles className="w-3.5 h-3.5" />
                 Temporada ({seasonalPromos.length})
               </TabsTrigger>
-              <TabsTrigger value="coupons" className="flex-shrink-0 gap-1.5 text-xs md:text-sm">
+              <TabsTrigger value="coupons" className="flex-shrink-0 gap-1.5 text-xs md:text-sm whitespace-nowrap">
                 <Tag className="w-3.5 h-3.5" />
                 Cupones ({couponPromos.length})
               </TabsTrigger>
             </TabsList>
+            </div>
 
             {/* ── Ofertas del Día ── */}
             <TabsContent value="daily">

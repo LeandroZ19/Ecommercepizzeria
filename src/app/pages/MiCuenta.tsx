@@ -334,12 +334,12 @@ export default function MiCuenta() {
                     <div className="space-y-2">
                       <Label htmlFor="login-email" className="flex items-center gap-2"><Mail className="w-4 h-4 text-primary" />Email</Label>
                       <Input id="login-email" type="email" placeholder="tu@email.com" value={loginData.email}
-                        onChange={e => setLoginData({ ...loginData, email: e.target.value })} required className="h-12" />
+                        onChange={e => setLoginData({ ...loginData, email: e.target.value })} required className="h-12 placeholder:text-muted-foreground/40" />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="login-password" className="flex items-center gap-2"><Lock className="w-4 h-4 text-primary" />Contraseña</Label>
                       <Input id="login-password" type="password" placeholder="••••••••" value={loginData.password}
-                        onChange={e => setLoginData({ ...loginData, password: e.target.value })} required className="h-12" />
+                        onChange={e => setLoginData({ ...loginData, password: e.target.value })} required className="h-12 placeholder:text-muted-foreground/40" />
                     </div>
                     <Button type="submit" className="w-full h-12" size="lg">Iniciar Sesión</Button>
                     <p className="text-sm text-center text-muted-foreground">Ingresa el email y contraseña con los que te registraste</p>
@@ -350,22 +350,22 @@ export default function MiCuenta() {
                     <div className="space-y-2">
                       <Label htmlFor="reg-name" className="flex items-center gap-2"><User className="w-4 h-4 text-primary" />Nombre Completo</Label>
                       <Input id="reg-name" placeholder="Juan Pérez" value={registerData.name}
-                        onChange={e => setRegisterData({ ...registerData, name: e.target.value })} required className="h-12" />
+                        onChange={e => setRegisterData({ ...registerData, name: e.target.value })} required className="h-12 placeholder:text-muted-foreground/40" />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="reg-email" className="flex items-center gap-2"><Mail className="w-4 h-4 text-primary" />Email</Label>
                       <Input id="reg-email" type="email" placeholder="tu@email.com" value={registerData.email}
-                        onChange={e => setRegisterData({ ...registerData, email: e.target.value })} required className="h-12" />
+                        onChange={e => setRegisterData({ ...registerData, email: e.target.value })} required className="h-12 placeholder:text-muted-foreground/40" />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="reg-phone" className="flex items-center gap-2"><Phone className="w-4 h-4 text-primary" />Teléfono</Label>
                       <Input id="reg-phone" type="tel" placeholder="+51 999 888 777" value={registerData.phone}
-                        onChange={e => setRegisterData({ ...registerData, phone: e.target.value })} required className="h-12" />
+                        onChange={e => setRegisterData({ ...registerData, phone: e.target.value })} required className="h-12 placeholder:text-muted-foreground/40" />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="reg-password" className="flex items-center gap-2"><Lock className="w-4 h-4 text-primary" />Contraseña</Label>
                       <Input id="reg-password" type="password" placeholder="••••••••" value={registerData.password}
-                        onChange={e => setRegisterData({ ...registerData, password: e.target.value })} required className="h-12" />
+                        onChange={e => setRegisterData({ ...registerData, password: e.target.value })} required className="h-12 placeholder:text-muted-foreground/40" />
                     </div>
                     <Button type="submit" className="w-full h-12" size="lg">Crear Cuenta</Button>
                     {needsConfirmation && (

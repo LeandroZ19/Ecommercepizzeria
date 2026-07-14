@@ -182,12 +182,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const total = getTotal();
     let dayDiscount = 0;
     if (activeDayPromo) {
-      // Martes 2x1 (50%): solo aplica sobre pizzas
-      const pizzaSubtotal = items
-        .filter(item => item.category === 'pizza')
-        .reduce((sum, item) => sum + item.price * item.quantity, 0);
-      const base = activeDayPromo.discount === 50 ? pizzaSubtotal : total;
-      dayDiscount = (base * activeDayPromo.discount) / 100;
+      if (activeDayPromo.discount === 50) {
+        // Martes 2x1: solo aplica a Pizza Americana y Pizza Pepperoni
+        const eligible = items.filter(item =>
+          /americana|pepperoni/i.test(item.name)
+        );
+        const eligibleSubtotal = eligible.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        if (eligibleSubtotal > 0) {
+          dayDiscount = eligibleSubtotal * 0.5;
+        } else {
+          // Sin pizzas elegibles → 40% de descuento general
+          dayDiscount = total * 0.4;
+        }
+      } else {
+        dayDiscount = (total * activeDayPromo.discount) / 100;
+      }
     }
     const couponDiscount = appliedCoupon ? (total * appliedCoupon.discount) / 100 : 0;
     return Math.max(dayDiscount, couponDiscount);

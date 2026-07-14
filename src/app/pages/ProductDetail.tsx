@@ -245,7 +245,7 @@ export default function ProductDetail() {
             )}
 
             {/* Precio y CTA */}
-            <div className="bg-card rounded-xl p-4 md:p-6 shadow-md border border-border md:sticky md:top-24">
+            <div className="bg-card rounded-xl p-4 md:p-6 shadow-md border border-border lg:sticky lg:top-24">
               <div className="flex gap-4 mb-3 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> 15–30 min</span>
                 {hasSizes && currentSize && (

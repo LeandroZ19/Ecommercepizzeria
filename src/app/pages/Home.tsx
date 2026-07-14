@@ -52,13 +52,6 @@ export default function Home() {
       {
         breakpoint: 768,
         settings: {
-          slidesToShow: 2,
-        },
-      },
-      {
-        /** A partir de 640 px o menos siempre mostrar 1 tarjeta */
-        breakpoint: 640,
-        settings: {
           slidesToShow: 1,
         },
       },

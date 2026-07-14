@@ -110,37 +110,37 @@ function ProductCard({
       </div>
 
       {/* Contenido — flex-1 para altura uniforme */}
-      <div className="flex flex-col flex-1 p-3 md:p-4">
+      <div className="flex flex-col flex-1 p-2.5 md:p-4">
         {/* Nombre */}
-        <h3 className="font-display text-sm md:text-base font-bold mb-1 line-clamp-2 leading-tight">
+        <h3 className="font-display text-xs md:text-base font-bold mb-1 line-clamp-2 leading-tight">
           {product.name}
         </h3>
 
         {/* Descripción — crece para igualar alturas */}
-        <p className="text-xs text-muted-foreground mb-3 flex-1 line-clamp-3 leading-relaxed">
+        <p className="text-[10px] md:text-xs text-muted-foreground mb-2 flex-1 line-clamp-2 md:line-clamp-3 leading-relaxed">
           {product.description}
         </p>
 
         {/* Precio prominente */}
-        <p className="text-primary font-bold text-base mb-3">
+        <p className="text-primary font-bold text-sm md:text-base mb-2">
           S/ {product.price.toFixed(2)}
         </p>
 
-        {/* Botones de acción — siempre al fondo */}
-        <div className="flex gap-1.5 mt-auto">
+        {/* Botones de acción — vertical en móvil, horizontal en md+ */}
+        <div className="flex flex-col sm:flex-row gap-1 mt-auto">
           <Link to={`/producto/${detailPageId}`} className="flex-1">
-            <Button variant="outline" className="w-full h-8 text-xs" size="sm">
-              <Eye className="w-3 h-3 mr-1" aria-hidden="true" />
-              Detalles
+            <Button variant="outline" className="w-full h-7 md:h-8 text-[10px] md:text-xs" size="sm">
+              <Eye className="w-3 h-3 mr-1 hidden sm:inline" aria-hidden="true" />
+              Ver
             </Button>
           </Link>
           <Button
             onClick={handleAdd}
-            className="flex-1 h-8 text-xs"
+            className="flex-1 h-7 md:h-8 text-[10px] md:text-xs"
             size="sm"
             aria-label={`Agregar ${product.name} al carrito`}
           >
-            Agregar
+            + Carrito
           </Button>
         </div>
       </div>
@@ -174,7 +174,7 @@ export default function Menu() {
 
   return (
     <div className="py-8 md:py-12">
-      <div className="container mx-auto px-4">
+      <div className="container mx-auto px-3 md:px-4">
 
         {/* Encabezado */}
         <motion.div
@@ -249,7 +249,7 @@ export default function Menu() {
 
         {/* Grilla de productos */}
         {filtered.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 items-stretch">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-4 items-stretch">
             {filtered.map((product, index) => (
               <ProductCard key={product.id} product={product} index={index} />
             ))}

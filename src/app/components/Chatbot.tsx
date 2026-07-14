@@ -130,7 +130,7 @@ const KNOWLEDGE_BASE: KBEntry[] = [
 
 /** Respuesta por defecto cuando no hay coincidencia de palabras clave */
 const DEFAULT_RESPONSE =
-  'Lo siento, no entendí bien tu pregunta. 🤔 Puedo ayudarte con:\n• Información del menú y precios\n• Tiempos y costos de delivery\n• Horarios de atención\n• Promociones y cupones\n• Crear tu pizza personalizada\n\n¿Sobre qué tema te gustaría saber más?';
+  'No encontré info exacta sobre eso, pero puedo ayudarte con:\n• 🍕 **Menú y precios** — escribe "menú" o "precios"\n• 🚚 **Delivery** — escribe "delivery" o "envío"\n• 🕐 **Horarios** — escribe "horario"\n• 🎉 **Promociones** — escribe "promociones"\n• 📍 **Ubicación** — escribe "dónde están"\n\n¿Podrías ser más específico? Por ejemplo: "¿cuánto cuesta la pizza americana?" o "¿tienen delivery a Villa María?"';
 
 /** Respuestas rápidas sugeridas al inicio */
 const INITIAL_QUICK_REPLIES: QuickReply[] = [
@@ -144,16 +144,53 @@ const INITIAL_QUICK_REPLIES: QuickReply[] = [
 
 /**
  * Encuentra la mejor respuesta para el texto ingresado por el usuario.
- * Usa coincidencia simple de keywords en minúsculas.
+ * Usa scoring de keywords: devuelve la entrada con más coincidencias.
+ * Si ninguna KB entry supera 0, intenta un fallback contextual por tema.
  */
 function getResponse(userText: string): string {
-  const normalized = userText.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const normalized = userText
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[¿¡.,!?;:]/g, ' ');
+
+  // Scoring: cuenta cuántas keywords coinciden por entrada
+  let bestScore = 0;
+  let bestResponse = DEFAULT_RESPONSE;
 
   for (const entry of KNOWLEDGE_BASE) {
-    if (entry.keywords.some((kw) => normalized.includes(kw))) {
-      return entry.response;
+    const score = entry.keywords.filter(kw => normalized.includes(kw)).length;
+    if (score > bestScore) {
+      bestScore = score;
+      bestResponse = entry.response;
     }
   }
+
+  if (bestScore > 0) return bestResponse;
+
+  // Fallback contextual: infiere el tema del mensaje libre
+  if (/pizza|quiero|pedir|ordenar|comprar|comer|rica/.test(normalized)) {
+    return KNOWLEDGE_BASE.find(e => e.keywords.includes('menu'))?.response ?? DEFAULT_RESPONSE;
+  }
+  if (/donde|direccion|ubicacion|tienda|local|mapa/.test(normalized)) {
+    return KNOWLEDGE_BASE.find(e => e.keywords.includes('dirección'))?.response ?? DEFAULT_RESPONSE;
+  }
+  if (/precio|cuanto|cuesta|barato|caro|soles/.test(normalized)) {
+    return KNOWLEDGE_BASE.find(e => e.keywords.includes('precio'))?.response ?? DEFAULT_RESPONSE;
+  }
+  if (/tiempo|rapido|cuando|esperar|demora|llega/.test(normalized)) {
+    return KNOWLEDGE_BASE.find(e => e.keywords.includes('delivery'))?.response ?? DEFAULT_RESPONSE;
+  }
+  if (/oferta|promo|descuento|gratis|cupon|codigo/.test(normalized)) {
+    return KNOWLEDGE_BASE.find(e => e.keywords.includes('promoción'))?.response ?? DEFAULT_RESPONSE;
+  }
+  if (/pago|cobro|tarjeta|efectivo|yape|plin|transferencia/.test(normalized)) {
+    return KNOWLEDGE_BASE.find(e => e.keywords.includes('pago'))?.response ?? DEFAULT_RESPONSE;
+  }
+  if (/ingrediente|tiene|lleva|contiene|alergeno|sin gluten/.test(normalized)) {
+    return KNOWLEDGE_BASE.find(e => e.keywords.includes('pizza personalizada'))?.response ?? DEFAULT_RESPONSE;
+  }
+
   return DEFAULT_RESPONSE;
 }
 

@@ -486,6 +486,7 @@ export default function Admin() {
   const [loadingO,  setLoadingO]  = useState(true);
   const [loadingP,  setLoadingP]  = useState(false);
   const [stockEdits, setStockEdits] = useState<Record<string, string>>({});
+  const [activeTab, setActiveTab] = useState('orders');
 
   useEffect(() => {
     if (user && !isAllowed) navigate('/');
@@ -589,7 +590,7 @@ export default function Admin() {
             <p className="text-muted-foreground text-sm">Administrador — {user.name}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={loadOrders} className="gap-2">
+            <Button variant="outline" onClick={() => { loadOrders(); if (activeTab === 'inventory') loadProducts(); }} className="gap-2">
               <RefreshCw className="w-4 h-4" />Actualizar
             </Button>
             <Button variant="outline" onClick={() => logout()} className="gap-2">
@@ -614,7 +615,7 @@ export default function Admin() {
           ))}
         </div>
 
-        <Tabs defaultValue="orders" onValueChange={v => { if (v === 'inventory') loadProducts(); }}>
+        <Tabs defaultValue="orders" onValueChange={v => { setActiveTab(v); if (v === 'inventory') loadProducts(); }}>
           <TabsList className="mb-6">
             <TabsTrigger value="orders" className="gap-2">
               <Package className="w-4 h-4" />Pedidos
