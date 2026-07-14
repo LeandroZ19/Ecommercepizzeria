@@ -44,16 +44,16 @@ export default function Home() {
     nextArrow: <SlickArrow direction="next" />,
     responsive: [
       {
-        breakpoint: 1024,
-        settings: {
-          slidesToShow: 3,
-        },
+        breakpoint: 1280,
+        settings: { slidesToShow: 3 },
       },
       {
-        breakpoint: 768,
-        settings: {
-          slidesToShow: 1,
-        },
+        breakpoint: 900,
+        settings: { slidesToShow: 2 },
+      },
+      {
+        breakpoint: 600,
+        settings: { slidesToShow: 1, arrows: false },
       },
     ],
   };
@@ -67,16 +67,12 @@ export default function Home() {
     slidesToShow: 3,
     responsive: [
       {
-        breakpoint: 1024,
-        settings: {
-          slidesToShow: 2,
-        },
+        breakpoint: 1280,
+        settings: { slidesToShow: 2 },
       },
       {
-        breakpoint: 768,
-        settings: {
-          slidesToShow: 1,
-        },
+        breakpoint: 600,
+        settings: { slidesToShow: 1, arrows: false },
       },
     ],
   };

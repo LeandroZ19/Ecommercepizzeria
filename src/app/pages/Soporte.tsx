@@ -74,20 +74,22 @@ export default function Soporte() {
       <section className="py-8 md:py-16 bg-background">
         <div className="container mx-auto px-4 max-w-4xl">
           <Tabs defaultValue="faq" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-8">
-              <TabsTrigger value="faq">
-                <HelpCircle className="w-4 h-4 mr-2" />
-                Preguntas Frecuentes
-              </TabsTrigger>
-              <TabsTrigger value="policies">
-                <FileText className="w-4 h-4 mr-2" />
-                Políticas
-              </TabsTrigger>
-              <TabsTrigger value="terms">
-                <Shield className="w-4 h-4 mr-2" />
-                Términos
-              </TabsTrigger>
-            </TabsList>
+            <div className="overflow-x-auto pb-1 mb-8 -mx-1">
+              <TabsList className="flex w-max min-w-full gap-1 h-auto p-1">
+                <TabsTrigger value="faq" className="flex items-center gap-2 whitespace-nowrap px-4 py-2">
+                  <HelpCircle className="w-4 h-4 flex-shrink-0" />
+                  Preguntas Frecuentes
+                </TabsTrigger>
+                <TabsTrigger value="policies" className="flex items-center gap-2 whitespace-nowrap px-4 py-2">
+                  <FileText className="w-4 h-4 flex-shrink-0" />
+                  Políticas
+                </TabsTrigger>
+                <TabsTrigger value="terms" className="flex items-center gap-2 whitespace-nowrap px-4 py-2">
+                  <Shield className="w-4 h-4 flex-shrink-0" />
+                  Términos
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
             {/* FAQs */}
             <TabsContent value="faq">

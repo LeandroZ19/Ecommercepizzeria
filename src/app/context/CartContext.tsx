@@ -60,7 +60,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 // Promos automáticas por día de la semana (dayOfWeek: 0=Dom … 6=Sáb)
 const DAY_PROMOS: Record<number, { name: string; discount: number; dayName: string }> = {
-  2: { name: 'Martes de Pizza 2x1', discount: 50, dayName: 'Martes' },
+  2: { name: 'Martes de Locura -40%', discount: 40, dayName: 'Martes' },
   4: { name: 'Jueves de Combos -30%', discount: 30, dayName: 'Jueves' },
   0: { name: 'Domingo Especial -15%', discount: 15, dayName: 'Domingo' },
 };
@@ -180,24 +180,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const getDiscount = () => {
     const total = getTotal();
-    let dayDiscount = 0;
-    if (activeDayPromo) {
-      if (activeDayPromo.discount === 50) {
-        // Martes 2x1: solo aplica a Pizza Americana y Pizza Pepperoni
-        const eligible = items.filter(item =>
-          /americana|pepperoni/i.test(item.name)
-        );
-        const eligibleSubtotal = eligible.reduce((sum, item) => sum + item.price * item.quantity, 0);
-        if (eligibleSubtotal > 0) {
-          dayDiscount = eligibleSubtotal * 0.5;
-        } else {
-          // Sin pizzas elegibles → 40% de descuento general
-          dayDiscount = total * 0.4;
-        }
-      } else {
-        dayDiscount = (total * activeDayPromo.discount) / 100;
-      }
-    }
+    const dayDiscount = activeDayPromo ? (total * activeDayPromo.discount) / 100 : 0;
     const couponDiscount = appliedCoupon ? (total * appliedCoupon.discount) / 100 : 0;
     return Math.max(dayDiscount, couponDiscount);
   };

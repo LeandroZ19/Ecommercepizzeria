@@ -311,51 +311,19 @@ export async function updateProductStock(
  * Los IDs del carrito son locales (p.ej. "pizza-americana"), no UUIDs de DB.
  * Se busca por nombre de producto, limpiando el sufijo de tamaño "(Mediana)" etc.
  */
+/**
+ * Decrementa stock via función SECURITY DEFINER (evita restricción RLS en clientes).
+ * Requiere haber ejecutado migration 006_security_functions.sql en Supabase.
+ */
 export async function decrementProductStock(
   productName: string,
   amount: number,
 ): Promise<{ error: unknown }> {
-  const baseName = productName.replace(/\s*\(.*\)\s*$/, '').trim();
-
-  // 1. Exact case-insensitive match
-  const { data: exact } = await supabase
-    .from('products')
-    .select('id, stock')
-    .ilike('name', baseName)
-    .limit(1);
-  let current = exact?.[0] ?? null;
-
-  // 2. Partial match (%baseName%)
-  if (!current) {
-    const { data: partial } = await supabase
-      .from('products')
-      .select('id, stock')
-      .ilike('name', `%${baseName}%`)
-      .limit(1);
-    current = partial?.[0] ?? null;
-  }
-
-  // 3. Match on first keyword (e.g. "Americana" from "Pizza Americana")
-  if (!current) {
-    const keyword = baseName.split(' ').find(w => w.length > 4) ?? baseName;
-    const { data: kw } = await supabase
-      .from('products')
-      .select('id, stock')
-      .ilike('name', `%${keyword}%`)
-      .limit(1);
-    current = kw?.[0] ?? null;
-  }
-
-  if (!current) {
-    console.error(`[db] decrementProductStock: not found for "${baseName}"`);
-    return { error: new Error(`Product not found: ${baseName}`) };
-  }
-  const newStock = Math.max(0, (current.stock ?? 0) - amount);
-  const { error } = await supabase
-    .from('products')
-    .update({ stock: newStock })
-    .eq('id', current.id);
-  if (error) console.error(`[db] decrementProductStock update error:`, error.message);
+  const { error } = await supabase.rpc('decrement_product_stock', {
+    p_product_name: productName,
+    p_amount:       amount,
+  });
+  if (error) console.error(`[db] decrement_product_stock RPC error:`, error.message);
   return { error };
 }
 
@@ -363,35 +331,21 @@ export async function decrementProductStock(
  * Calcula la posición del pedido en la cola virtual.
  * Posición = cantidad de pedidos activos (pending/preparing) creados ANTES de éste + 1.
  */
+/**
+ * Calcula posición en la cola vía función SECURITY DEFINER (evita restricción RLS).
+ * Requiere haber ejecutado migration 006_security_functions.sql en Supabase.
+ */
 export async function fetchQueuePosition(
   orderId: string,
 ): Promise<{ position: number | null; error: unknown }> {
-  const { data: current, error: fetchErr } = await supabase
-    .from('orders')
-    .select('order_number, created_at')
-    .eq('id', orderId)
-    .single();
-  if (fetchErr || !current) return { position: null, error: fetchErr };
-
-  // Use order_number (strict sequential) if available; fall back to created_at
-  let q;
-  if (current.order_number != null) {
-    q = supabase
-      .from('orders')
-      .select('id', { count: 'exact', head: true })
-      .in('status', ['pending', 'preparing'])
-      .lt('order_number', current.order_number);
-  } else {
-    q = supabase
-      .from('orders')
-      .select('id', { count: 'exact', head: true })
-      .in('status', ['pending', 'preparing'])
-      .lt('created_at', current.created_at);
+  const { data, error } = await supabase.rpc('get_queue_position', {
+    p_order_id: orderId,
+  });
+  if (error) {
+    console.error(`[db] get_queue_position RPC error:`, error.message);
+    return { position: null, error };
   }
-
-  const { count, error } = await q;
-  if (error) return { position: null, error };
-  return { position: (count ?? 0) + 1, error: null };
+  return { position: data as number | null, error: null };
 }
 
 // ─── Operaciones de productos ─────────────────────────────────────────────────
