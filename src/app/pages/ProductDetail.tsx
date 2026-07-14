@@ -18,7 +18,8 @@ import { allProducts, type ExtendedProduct } from '../data/products';
 import { useCart } from '../context/CartContext';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { ArrowLeft, Check, Info, Flame, Package, Clock, Users } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { ArrowLeft, Check, Info, Flame, Package, Clock, Users, QrCode, X } from 'lucide-react';
 import { toast } from 'sonner';
 import ImageMagnifier from '../components/ImageMagnifier';
 
@@ -72,6 +73,8 @@ export default function ProductDetail() {
 
   const baseFixedPrice = extended?.price ?? 0;
   const hasSizes = !product?._isCombo && 'sizes' in (product ?? {}) && ((product as any)?.sizes?.length ?? 0) > 0;
+
+  const [showARModal, setShowARModal] = useState(false);
 
   const [selectedSize, setSelectedSize] = useState(() => {
     if (!hasSizes) return 'default';
@@ -258,7 +261,63 @@ export default function ProductDetail() {
               <Button onClick={handleAddToCart} size="lg" className="w-full h-12">
                 Agregar al Carrito
               </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => setShowARModal(true)}
+                className="w-full h-11 gap-2 mt-3 border-dashed"
+              >
+                <QrCode className="w-4 h-4" />
+                Ver en Realidad Aumentada
+              </Button>
             </div>
+
+            {/* Modal AR QR */}
+            <Dialog open={showARModal} onOpenChange={setShowARModal}>
+              <DialogContent className="max-w-sm">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2 font-display">
+                    <QrCode className="w-5 h-5 text-primary" />
+                    Ver {product.name} en AR
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-2">
+                  <p className="text-sm text-muted-foreground">
+                    Escanea este código QR con tu celular para ver el modelo 3D de la pizza sobre tu mesa usando la cámara.
+                  </p>
+                  <div className="flex justify-center">
+                    <div className="bg-white p-3 rounded-xl shadow-inner border border-border">
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
+                          `${window.location.origin}/ar-viewer.html?product=${encodeURIComponent(product.name)}`
+                        )}`}
+                        alt="Código QR para AR"
+                        className="w-48 h-48 block"
+                        loading="lazy"
+                      />
+                    </div>
+                  </div>
+                  {/* Marcador Hiro directamente en la página */}
+                  <div className="border border-border rounded-xl p-4">
+                    <p className="text-sm font-semibold text-foreground mb-2">Marcador AR — imprímelo o muéstralo en pantalla:</p>
+                    <div className="flex items-center gap-4">
+                      <img
+                        src="https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/images/HIRO.jpg"
+                        alt="Marcador Hiro para AR"
+                        className="w-28 h-28 rounded-lg border border-border flex-shrink-0 bg-white"
+                        loading="lazy"
+                      />
+                      <div className="text-xs text-muted-foreground space-y-1.5">
+                        <p>1. Escanea el QR con tu celular.</p>
+                        <p>2. Apunta la cámara al marcador de la izquierda.</p>
+                        <p>3. La pizza aparecerá en 3D 🍕</p>
+                        <p className="opacity-70 pt-1">Requiere <strong>Chrome Android</strong> o <strong>Safari iOS</strong>.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
 
             <ul className="text-xs text-muted-foreground space-y-1 px-1">
               <li>✓ Preparado al momento con ingredientes frescos</li>

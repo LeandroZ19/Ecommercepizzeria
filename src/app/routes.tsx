@@ -32,6 +32,7 @@ import Soporte from './pages/Soporte';
 import ProductDetail from './pages/ProductDetail';
 import CustomPizza from './pages/CustomPizza';
 import Admin from './pages/Admin';
+import RapiPizzaVR from './pages/RapiPizzaVR';
 
 export const router = createBrowserRouter([
   {
@@ -50,6 +51,7 @@ export const router = createBrowserRouter([
       { path: 'contacto', Component: Contacto },
       { path: 'soporte', Component: Soporte },
       { path: 'admin', Component: Admin },
+      { path: 'rapipizza-vr', Component: RapiPizzaVR },
     ],
   },
 ]);

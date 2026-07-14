@@ -172,8 +172,8 @@ export default function Home() {
               },
               {
                 icon: Truck,
-                title: 'Delivery Gratis',
-                description: 'Usuarios nuevos',
+                title: 'Seguimiento en Vivo',
+                description: 'Ve tu pedido en el mapa en tiempo real',
               },
               {
                 icon: Star,

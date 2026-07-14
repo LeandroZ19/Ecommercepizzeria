@@ -33,9 +33,17 @@ export interface AppliedCoupon {
   discount: number;
 }
 
+export interface DayPromo {
+  active: boolean;
+  name: string;
+  discount: number;
+  dayName: string;
+}
+
 interface CartContextType {
   items: CartItem[];
   appliedCoupon: AppliedCoupon | null;
+  activeDayPromo: DayPromo | null;
   addToCart: (product: Product) => void;
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
@@ -50,10 +58,23 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
+// Promos automáticas por día de la semana (dayOfWeek: 0=Dom … 6=Sáb)
+const DAY_PROMOS: Record<number, { name: string; discount: number; dayName: string }> = {
+  2: { name: 'Martes de Pizza 2x1', discount: 50, dayName: 'Martes' },
+  4: { name: 'Jueves de Combos -30%', discount: 30, dayName: 'Jueves' },
+  0: { name: 'Domingo Especial -15%', discount: 15, dayName: 'Domingo' },
+};
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [items, setItems] = useState<CartItem[]>([]);
   const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
+
+  // Promo automática activa hoy (si hay una)
+  const todayDow = new Date().getDay();
+  const activeDayPromo: DayPromo | null = DAY_PROMOS[todayDow]
+    ? { active: true, ...DAY_PROMOS[todayDow] }
+    : null;
 
   // Cargar el carrito desde el almacenamiento local cuando el usuario inicie sesión
   useEffect(() => {
@@ -139,6 +160,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       { code: 'PERU15',     discount: 15 },
       { code: 'ESCOLAR10',  discount: 10 },
       { code: 'NAVIDAD25',  discount: 25 },
+      { code: 'DOMINGO15',  discount: 15 },
     ];
 
     const coupon = validCoupons.find(
@@ -157,15 +179,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const getDiscount = () => {
-    if (!appliedCoupon) return 0;
     const total = getTotal();
-    return (total * appliedCoupon.discount) / 100;
+    // La promo del día se aplica siempre. Si el usuario además tiene cupón, se acumula.
+    const dayDiscount = activeDayPromo ? (total * activeDayPromo.discount) / 100 : 0;
+    const couponDiscount = appliedCoupon ? (total * appliedCoupon.discount) / 100 : 0;
+    // El descuento final es el mayor entre los dos (no acumulable, protege al usuario)
+    return Math.max(dayDiscount, couponDiscount);
   };
 
   const getFinalTotal = () => {
-    const total = getTotal();
-    const discount = getDiscount();
-    return total - discount;
+    return Math.max(0, getTotal() - getDiscount());
   };
 
   return (
@@ -173,6 +196,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       value={{
         items,
         appliedCoupon,
+        activeDayPromo,
         addToCart,
         removeFromCart,
         updateQuantity,

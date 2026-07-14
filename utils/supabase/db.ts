@@ -306,6 +306,32 @@ export async function updateProductStock(
   return { error };
 }
 
+/**
+ * Resta `amount` al stock buscando por nombre (case-insensitive).
+ * Los IDs del carrito son locales (p.ej. "pizza-americana"), no UUIDs de DB.
+ * Se busca por nombre de producto, limpiando el sufijo de tamaño "(Mediana)" etc.
+ */
+export async function decrementProductStock(
+  productName: string,
+  amount: number,
+): Promise<{ error: unknown }> {
+  // Quitar sufijo de tamaño entre paréntesis: "Pizza Americana (Mediana)" → "Pizza Americana"
+  const baseName = productName.replace(/\s*\(.*\)\s*$/, '').trim();
+
+  const { data: current, error: fetchErr } = await supabase
+    .from('products')
+    .select('id, stock')
+    .ilike('name', baseName)
+    .maybeSingle();
+  if (fetchErr || !current) return { error: fetchErr ?? new Error(`Product not found: ${baseName}`) };
+  const newStock = Math.max(0, (current.stock ?? 0) - amount);
+  const { error } = await supabase
+    .from('products')
+    .update({ stock: newStock })
+    .eq('id', current.id);
+  return { error };
+}
+
 // ─── Operaciones de productos ─────────────────────────────────────────────────
 
 export async function fetchProducts(): Promise<{ data: ProductRow[]; error: unknown }> {

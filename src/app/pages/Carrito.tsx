@@ -26,6 +26,7 @@ export default function Carrito() {
     getTotal,
     clearCart,
     appliedCoupon,
+    activeDayPromo,
     applyCoupon,
     removeCoupon,
     getDiscount,
@@ -205,9 +206,21 @@ export default function Carrito() {
                   <span>Subtotal</span>
                   <span>S/ {total.toFixed(2)}</span>
                 </div>
+                {activeDayPromo && (
+                  <div className="flex justify-between text-orange-600">
+                    <span>🎉 {activeDayPromo.name}</span>
+                    <span>-{activeDayPromo.discount}%</span>
+                  </div>
+                )}
                 {appliedCoupon && (
                   <div className="flex justify-between text-green-600">
-                    <span>Descuento ({appliedCoupon.code})</span>
+                    <span>Cupón ({appliedCoupon.code})</span>
+                    <span>-{appliedCoupon.discount}%</span>
+                  </div>
+                )}
+                {(activeDayPromo || appliedCoupon) && (
+                  <div className="flex justify-between text-green-600">
+                    <span>Ahorro total</span>
                     <span>-S/ {discount.toFixed(2)}</span>
                   </div>
                 )}

@@ -269,7 +269,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const json = await res.json().catch(() => ({ error: 'Error desconocido' }));
       const errMsg = (json.error ?? '').toLowerCase();
       if (errMsg.includes('already') || errMsg.includes('registered') || errMsg.includes('exist')) {
-        return { ok: false, error: 'Este email ya tiene una cuenta. Por favor inicia sesion.' };
+        // El email ya existe → intentar login directo con las credenciales proporcionadas
+        const { error: loginErr } = await supabase.auth.signInWithPassword({ email, password });
+        if (!loginErr) {
+          console.log('[auth] Email already registered — logged in successfully');
+          return { ok: true };
+        }
+        return { ok: false, error: 'Este email ya tiene una cuenta. Por favor inicia sesion con tu contrasena.' };
       }
       // Error del servidor no crítico: se pasa a la estrategia 2.
       console.warn('[auth] Edge function register error:', json.error, '— trying direct signUp');
@@ -290,6 +296,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (error) {
       if (error.message.includes('already registered') || error.message.includes('already been registered')) {
+        // Email ya existe → intentar login con las credenciales dadas
+        const { error: loginErr } = await supabase.auth.signInWithPassword({ email, password });
+        if (!loginErr) {
+          console.log('[auth] Email already registered — logged in via signUp fallback');
+          return { ok: true };
+        }
         return { ok: false, error: 'Este email ya tiene una cuenta. Por favor inicia sesion.' };
       }
       return { ok: false, error: `Error al crear cuenta: ${error.message}` };
@@ -324,6 +336,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     setUser(null);
     setOrders([]);
+    // Redirigir al inicio después de cerrar sesión
+    window.location.href = '/';
   };
 
   // Actualizar perfil 

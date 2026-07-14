@@ -40,14 +40,16 @@ export default function Layout() {
     { name: "Inicio", path: "/" },
     { name: "Menú", path: "/menu" },
     { name: "Promociones", path: "/promociones" },
+    { name: "RapiPizza VR", path: "/rapipizza-vr" },
     { name: "Nosotros", path: "/nosotros" },
     { name: "Contacto", path: "/contacto" },
     { name: "Soporte", path: "/soporte" },
   ];
 
-  const authNavLinks = [
-    { name: "Mis Pedidos", path: "/mi-cuenta", requiresAuth: true },
-  ];
+  // "Mis Pedidos" solo aparece para clientes (no admin ni delivery)
+  const authNavLinks = user?.role === 'customer'
+    ? [{ name: "Mis Pedidos", path: "/mi-cuenta" }]
+    : [];
 
   const isAdminOrDelivery = user?.role === 'admin' || user?.role === 'delivery';
 
@@ -145,33 +147,37 @@ export default function Layout() {
 
             {/* Actions */}
             <div className="flex items-center gap-4">
-              {/* User */}
-              <Link
-                to="/mi-cuenta"
-                className="hidden md:flex items-center gap-2 hover:text-accent transition-colors"
-              >
-                <User className="w-5 h-5" />
-                <span className="text-sm font-medium">
-                  {user ? user.name : "Mi Cuenta"}
-                </span>
-              </Link>
+              {/* User — solo clientes y no autenticados */}
+              {!isAdminOrDelivery && (
+                <Link
+                  to="/mi-cuenta"
+                  className="hidden md:flex items-center gap-2 hover:text-accent transition-colors"
+                >
+                  <User className="w-5 h-5" />
+                  <span className="text-sm font-medium">
+                    {user ? user.name : "Mi Cuenta"}
+                  </span>
+                </Link>
+              )}
 
-              {/* Cart */}
-              <Link
-                to="/carrito"
-                className="relative flex items-center gap-2 hover:text-accent transition-colors"
-              >
-                <ShoppingCart className="w-5 h-5" />
-                {itemCount > 0 && (
-                  <motion.span
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="absolute -top-2 -right-2 bg-secondary text-secondary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold"
-                  >
-                    {itemCount}
-                  </motion.span>
-                )}
-              </Link>
+              {/* Cart — solo para clientes */}
+              {!isAdminOrDelivery && (
+                <Link
+                  to="/carrito"
+                  className="relative flex items-center gap-2 hover:text-accent transition-colors"
+                >
+                  <ShoppingCart className="w-5 h-5" />
+                  {itemCount > 0 && (
+                    <motion.span
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="absolute -top-2 -right-2 bg-secondary text-secondary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold"
+                    >
+                      {itemCount}
+                    </motion.span>
+                  )}
+                </Link>
+              )}
 
               {/* Mobile Menu Toggle */}
               <button
@@ -234,14 +240,16 @@ export default function Layout() {
                     Admin
                   </Link>
                 )}
-                <Link
-                  to="/mi-cuenta"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="md:hidden text-sm font-medium transition-colors hover:text-accent flex items-center gap-2"
-                >
-                  <User className="w-4 h-4" />
-                  {user ? user.name : "Mi Cuenta"}
-                </Link>
+                {!isAdminOrDelivery && (
+                  <Link
+                    to="/mi-cuenta"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="md:hidden text-sm font-medium transition-colors hover:text-accent flex items-center gap-2"
+                  >
+                    <User className="w-4 h-4" />
+                    {user ? user.name : "Mi Cuenta"}
+                  </Link>
+                )}
               </div>
             </motion.nav>
           )}

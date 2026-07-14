@@ -1,0 +1,1827 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>RapiPizza VR — Pide tu pizza</title>
+
+<!--
+  ============================================================================
+  RAPIPIZZA VR — experiencia interactiva en 3D (estilo "walking simulator" de
+  Roblox) construida con A-Frame (framework de WebXR/Realidad Virtual).
+  ============================================================================
+  ESTRUCTURA DEL ARCHIVO:
+    1. <head>            Fuentes, librería A-Frame y todo el CSS (HUD/diálogo).
+    2. <a-scene>          El mundo 3D: jugador, luces, local, mobiliario y NPC.
+    3. <div id="hud">      Interfaz 2D superpuesta (HUD): saldo, mira, pistas.
+    4. <div id="ticket">   El "ticket" de diálogo donde habla la recepcionista.
+    5. <div id="start">    Pantalla de bienvenida antes de entrar al juego.
+    6. <script>            Toda la lógica: movimiento, diálogos, carrito, saldo.
+
+  TÉCNICA CLAVE PARA EL TAMAÑO ("hazlo todo más grande"):
+    Todo el local (paredes, mesas, mostrador, letrero, recepcionista, etc.)
+    está dentro de una sola entidad contenedora <a-entity id="world"> con
+    scale="2 2 2". Esto DUPLICA el tamaño de todo el ambiente de forma
+    proporcional sin tener que recalcular cada medida a mano, mientras la
+    cámara del jugador mantiene una altura realista (1.6 m). El resultado es
+    que el local se siente mucho más grande e imponente respecto al jugador.
+
+  GARANTÍA PARA PODER COMPRAR ("no puedo hacer pedidos"):
+    Hay TRES formas independientes de abrir el diálogo, para que comprar
+    nunca falle:
+      a) Apuntar con la mira (crosshair) a la recepcionista y hacer clic,
+         o pulsar E mientras la estás mirando (ver punto siguiente).
+      b) Botón FIJO en pantalla, "🍕 Pedir pizza", visible todo el tiempo
+         una vez dentro del juego. Llama directamente a openDialogue() sin
+         depender de la posición del jugador ni de la puntería.
+
+  INTERACCIÓN POR PUNTERÍA ("que el diálogo sea al apuntar al recepcionista"):
+    Ya NO hace falta acercarse caminando: basta con apuntar la mira central
+    (el "crosshair" de la pantalla) hacia la recepcionista, el mostrador o
+    la zona invisible que los rodea. A-Frame ya trae listo este mecanismo:
+    el componente "raycaster" del cursor dispara automáticamente los
+    eventos "mouseenter"/"mouseleave" sobre cualquier entidad con
+    class="clickable" cuando el rayo de la mira la toca o la deja de tocar.
+    Escuchamos esos eventos para mostrar el aviso "Pulsa E / haz clic para
+    hablar" y para permitir abrir el diálogo. El alcance del rayo
+    (raycaster far:18) es generoso, así que funciona incluso a distancia.
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Poppins:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+<style>
+  /* ==========================================================================
+     VARIABLES DE DISEÑO (paleta de colores reutilizada en todo el HUD)
+     -------------------------------------------------------------------------
+     --char       : fondo oscuro general (carbón)
+     --crust      : madera / mobiliario
+     --ember      : color de acento principal (naranja-rojo "neón")
+     --basil      : verde de acento (vegetales / detalles)
+     --mozzarella : crema clara, fondo del "ticket" de diálogo
+     --marinara   : rojo oscuro, color de marca / textos importantes
+     ========================================================================== */
+  :root{
+    --char:#1b1410;
+    --crust:#6b4226;
+    --ember:#ff5a36;
+    --basil:#4c9a4a;
+    --mozzarella:#f7efe3;
+    --marinara:#c81d25;
+  }
+  *{ box-sizing:border-box; }
+  html,body{
+    margin:0; padding:0; width:100%; height:100%; overflow:hidden;
+    background:var(--char);
+    font-family:'Poppins', sans-serif;
+  }
+  /* El lienzo 3D de A-Frame ocupa toda la pantalla, por debajo del HUD */
+  a-scene{ position:absolute; inset:0; width:100%; height:100%; }
+
+  /* ==========================================================================
+     HUD GENERAL (capa 2D fija sobre el lienzo 3D)
+     ========================================================================== */
+  #hud{ position:fixed; inset:0; pointer-events:none; z-index:5; }
+
+  /* --- Insignia de marca (arriba a la izquierda) --- */
+  #brand{
+    position:absolute; top:18px; left:18px;
+    display:flex; align-items:center; gap:10px;
+    background:rgba(27,20,16,0.55);
+    border:1px solid rgba(255,90,54,0.4);
+    border-radius:999px;
+    padding:8px 16px 8px 10px;
+    backdrop-filter:blur(6px);
+  }
+  #brand .dot{ width:10px;height:10px;border-radius:50%;background:var(--ember); box-shadow:0 0 10px var(--ember); }
+  #brand span{
+    font-family:'Fredoka',sans-serif; font-weight:600; letter-spacing:.3px;
+    color:var(--mozzarella); font-size:18px;
+  }
+  #brand span b{ color:var(--ember); }
+
+  /* --- Mira central (crosshair) para apuntar a objetos interactivos --- */
+  #crosshair{
+    position:absolute; top:50%; left:50%; width:10px; height:10px;
+    margin:-5px 0 0 -5px; border:2px solid rgba(247,239,227,0.8);
+    border-radius:50%; mix-blend-mode:difference;
+    transition:transform .15s ease, border-color .15s ease, background .15s ease;
+  }
+  /* Se activa (vía JS, ver onAimEnter/onAimLeave) cuando la mira está sobre
+     la recepcionista, el mostrador o la zona invisible de interacción. */
+  #crosshair.active{
+    transform:scale(1.7);
+    border-color:var(--ember);
+    background:rgba(255,90,54,0.55);
+  }
+
+  /* --- Pista de controles (abajo a la izquierda), se desvanece sola --- */
+  #hint{
+    position:absolute; bottom:22px; left:18px;
+    display:flex; gap:10px; flex-wrap:wrap; max-width:340px;
+    transition:opacity .6s ease;
+  }
+  #hint.fade{ opacity:0; }
+  #hint .key{
+    background:rgba(27,20,16,0.6); border:1px solid rgba(247,239,227,0.25);
+    color:var(--mozzarella); font-family:'JetBrains Mono',monospace; font-size:12px;
+    padding:6px 10px; border-radius:8px; backdrop-filter:blur(4px);
+  }
+
+  /* --- Aviso "Pulsa E" que aparece cuando apuntas (miras) a la recepcionista --- */
+  #prompt{
+    position:absolute; bottom:120px; left:50%; transform:translate(-50%,8px);
+    background:var(--marinara); color:var(--mozzarella);
+    font-family:'Fredoka',sans-serif; font-weight:600; font-size:14px;
+    padding:8px 18px; border-radius:999px; opacity:0;
+    transition:opacity .25s ease, transform .25s ease;
+    box-shadow:0 6px 18px rgba(0,0,0,0.35);
+  }
+  #prompt.show{ opacity:1; transform:translate(-50%,0); }
+
+  /* ----------------------------------------------------------------------
+     BOTÓN FIJO "Pedir pizza" — RESPALDO GARANTIZADO PARA COMPRAR
+     ------------------------------------------------------------------------
+     No depende de la posición del jugador ni de raycasting: simplemente
+     llama a openDialogue() al hacer clic. Está siempre visible una vez
+     dentro del juego (excepto mientras el diálogo ya está abierto), así
+     que SIEMPRE es posible pedir una pizza sin importar dónde estés parado.
+     ---------------------------------------------------------------------- */
+  #orderFab{
+    position:absolute; bottom:26px; left:50%; transform:translateX(-50%);
+    display:flex; align-items:center; gap:8px;
+    background:var(--ember); color:#fff;
+    font-family:'Fredoka',sans-serif; font-weight:600; font-size:15px;
+    padding:14px 26px; border:none; border-radius:999px;
+    cursor:pointer; pointer-events:auto;
+    box-shadow:0 8px 26px rgba(255,90,54,0.5);
+    animation: fabPulse 2.4s ease-in-out infinite;
+    transition:opacity .2s ease, transform .15s ease;
+  }
+  #orderFab:hover{ transform:translateX(-50%) translateY(-2px); }
+  #orderFab.hidden{ opacity:0; pointer-events:none; }
+  @keyframes fabPulse{
+    0%,100%{ box-shadow:0 8px 26px rgba(255,90,54,0.5); }
+    50%{ box-shadow:0 8px 34px rgba(255,90,54,0.85); }
+  }
+
+  /* ==========================================================================
+     SIMULACIÓN DE PEDIDO — estilos de todos los elementos del HUD
+     --------------------------------------------------------------------------
+     #pizzaToast   : Notificación grande que baja desde la parte superior.
+                     Se activa con la clase .show (top pasa de -160px a 78px).
+                     Se usa para avisar "¡Tu pizza está lista!", "Recogiste
+                     tu pizza", "¡Siéntate!", "¡Buen provecho!", etc.
+     #prepBadge    : Pastilla centrada con cuenta regresiva y emoji girando.
+                     Visible solo durante el estado "preparing".
+     #carryHud     : Indicador lateral (abajo-derecha) que muestra que el
+                     jugador lleva la caja de pizza. Instruye dónde dejarla.
+     #eatOverlay   : Barra de progreso "comiendo pizza". Aparece cuando el
+                     jugador hace clic en la caja estando sentado.
+     #standBtn     : Botón para levantarse de la silla. Aparece solo
+                     cuando simState es "sitting" o "eating".
+     ========================================================================== */
+  /* -- Toast de notificación grande -- */
+  #pizzaToast{
+    position:absolute; top:-160px; left:50%; transform:translateX(-50%);
+    width:min(500px,88vw);
+    background:linear-gradient(135deg,#c81d25 0%,#ff5a36 100%);
+    color:#fff; border-radius:18px; padding:20px 28px; text-align:center;
+    box-shadow:0 12px 40px rgba(200,29,37,0.55); pointer-events:none;
+    transition:top .5s cubic-bezier(.2,.8,.2,1);
+    font-family:'Fredoka',sans-serif; z-index:10;
+  }
+  #pizzaToast.show{ top:78px; }
+  #pizzaToast h2{ margin:0 0 4px 0; font-size:22px; font-weight:700; }
+  #pizzaToast p { margin:0; font-size:14px; opacity:.9; }
+
+  /* -- Countdown de preparación -- */
+  #prepBadge{
+    position:absolute; top:66px; left:50%; transform:translateX(-50%);
+    background:rgba(27,20,16,0.82); border:1px solid rgba(255,207,107,0.5);
+    border-radius:999px; padding:9px 22px;
+    display:flex; align-items:center; gap:8px;
+    font-family:'JetBrains Mono',monospace; font-weight:700;
+    color:#ffcf6b; font-size:15px;
+    backdrop-filter:blur(6px); opacity:0; pointer-events:none;
+    transition:opacity .3s ease;
+  }
+  #prepBadge.show{ opacity:1; }
+  /* El emoji gira para indicar actividad (solo CSS, sin JS) */
+  #prepBadge .spin{ animation:rotatePizza 1.2s linear infinite; display:inline-block; }
+  @keyframes rotatePizza{ to{ transform:rotate(360deg); } }
+
+  /* -- Indicador de llevar la caja -- */
+  #carryHud{
+    position:absolute; bottom:90px; right:18px;
+    background:rgba(27,20,16,0.82); border:1px solid rgba(255,207,107,0.4);
+    border-radius:14px; padding:12px 18px; text-align:center;
+    font-family:'Fredoka',sans-serif; color:var(--mozzarella);
+    opacity:0; pointer-events:none; transition:opacity .3s ease;
+    backdrop-filter:blur(6px);
+  }
+  #carryHud.show{ opacity:1; }
+  #carryHud .icon{ font-size:32px; display:block; margin-bottom:4px; }
+  #carryHud small{ font-size:11px; opacity:.75; display:block; }
+
+  /* -- Barra de progreso "comiendo" -- */
+  #eatOverlay{
+    position:absolute; bottom:145px; left:50%; transform:translateX(-50%);
+    width:min(360px,82vw); background:rgba(27,20,16,0.88);
+    border-radius:14px; padding:18px 22px; text-align:center;
+    font-family:'Fredoka',sans-serif; color:var(--mozzarella);
+    opacity:0; pointer-events:none; transition:opacity .3s ease;
+    backdrop-filter:blur(6px);
+  }
+  #eatOverlay.show{ opacity:1; }
+  #eatOverlay p{ margin:0 0 10px 0; font-size:16px; font-weight:600; }
+  #eatBar{
+    width:100%; height:12px; background:rgba(247,239,227,0.2);
+    border-radius:999px; overflow:hidden;
+  }
+  #eatBarFill{
+    height:100%; width:0%; background:var(--ember);
+    border-radius:999px; transition:width .1s linear;
+  }
+
+  /* -- Botón levantarse -- */
+  #standBtn{
+    position:absolute; bottom:26px; right:18px;
+    background:rgba(27,20,16,0.82); border:1.5px solid rgba(247,239,227,0.3);
+    color:var(--mozzarella); font-family:'Fredoka',sans-serif;
+    font-weight:600; font-size:14px;
+    border-radius:999px; padding:12px 20px; cursor:pointer;
+    backdrop-filter:blur(6px);
+    opacity:0; pointer-events:none; transition:opacity .3s ease;
+  }
+  #standBtn.show{ opacity:1; pointer-events:auto; }
+
+  /* ==========================================================================
+     SALDO DEL JUGADOR — sistema de "dinero" estilo Roblox (arriba a la derecha)
+     ========================================================================== */
+  #balanceHud{
+    position:absolute; top:18px; right:18px;
+    display:flex; align-items:center; gap:8px;
+    background:rgba(27,20,16,0.6);
+    border:1px solid rgba(255,207,107,0.55);
+    border-radius:999px;
+    padding:9px 16px 9px 12px;
+    backdrop-filter:blur(6px);
+    transition:transform .2s ease;
+  }
+  #balanceHud.bump{ transform:scale(1.12); } /* pequeño "rebote" al gastar/recargar */
+  #balanceHud .coin{
+    width:22px; height:22px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #ffe9b0, #ffcf6b 60%, #c8901f);
+    box-shadow:0 0 8px rgba(255,207,107,0.7);
+    display:flex; align-items:center; justify-content:center;
+    font-size:12px;
+  }
+  #balanceHud span.amount{
+    font-family:'JetBrains Mono',monospace; font-weight:700; color:#ffd98a; font-size:14px;
+  }
+  #balanceHud .label{
+    font-family:'Fredoka',sans-serif; font-size:10px; color:rgba(247,239,227,0.55);
+    display:block; margin-top:-2px;
+  }
+
+  /* ==========================================================================
+     "TICKET" DE DIÁLOGO — panel inferior tipo recibo/orden de pizzería
+     ========================================================================== */
+  #ticket{
+    position:absolute; left:50%; bottom:-460px; transform:translateX(-50%);
+    width:min(600px, 92vw);
+    background:var(--mozzarella);
+    border-radius:14px 14px 4px 4px;
+    box-shadow:0 -10px 40px rgba(0,0,0,0.45);
+    transition:bottom .4s cubic-bezier(.2,.8,.2,1);
+    pointer-events:auto; /* el resto del HUD ignora clics, pero el ticket sí los recibe */
+    font-family:'Poppins',sans-serif;
+    overflow:hidden;
+    max-height:78vh; overflow-y:auto;
+  }
+  #ticket.open{ bottom:24px; }
+  /* Línea punteada arriba, simulando el perforado de un ticket de papel */
+  #ticket::before{
+    content:""; display:block; height:6px;
+    background:repeating-linear-gradient(90deg, transparent 0 10px, rgba(27,20,16,0.18) 10px 14px);
+  }
+  #ticketHead{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 20px 6px 20px;
+  }
+  #ticketSpeaker{
+    font-family:'Fredoka',sans-serif; font-weight:600; color:var(--marinara);
+    font-size:15px; letter-spacing:.2px;
+  }
+  #ticketClose{
+    background:none; border:none; color:var(--char); opacity:.5;
+    font-size:18px; cursor:pointer; line-height:1; padding:2px 6px;
+  }
+  #ticketClose:hover{ opacity:1; }
+  #ticketBody{ padding:6px 20px 20px 20px; color:var(--char); }
+
+  .dlg-text{ font-size:15px; line-height:1.5; margin:4px 0 14px 0; }
+  .dlg-options{ display:flex; gap:10px; flex-wrap:wrap; }
+  .dlg-btn{
+    font-family:'Fredoka',sans-serif; font-weight:600; font-size:14px;
+    background:var(--ember); color:var(--mozzarella);
+    border:none; border-radius:999px; padding:10px 18px;
+    cursor:pointer; transition:transform .15s ease, box-shadow .15s ease;
+    box-shadow:0 4px 0 rgba(0,0,0,0.15);
+  }
+  .dlg-btn:hover{ transform:translateY(-2px); }
+  .dlg-btn:active{ transform:translateY(0); }
+  .dlg-btn.ghost{
+    background:transparent; color:var(--char); border:1.5px solid rgba(27,20,16,0.3);
+    box-shadow:none;
+  }
+
+  /* --- Recibo de pedido (pantalla "resumen") --- */
+  .receipt{ list-style:none; margin:0 0 6px 0; padding:0; font-family:'JetBrains Mono',monospace; font-size:13px; }
+  .receipt li{ display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px dashed rgba(27,20,16,0.2); }
+  .receipt-total{
+    display:flex; justify-content:space-between; font-family:'JetBrains Mono',monospace;
+    font-weight:700; font-size:15px; padding:10px 0 16px 0; color:var(--marinara);
+  }
+
+  /* --- Tarjetas de menú (pantalla "menu"), una por cada pizza --- */
+  .menu-grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:6px 0 14px 0;
+  }
+  .menu-card{
+    background:#fff; border-radius:14px; overflow:hidden;
+    box-shadow:0 4px 14px rgba(27,20,16,0.18);
+    border:1px solid rgba(27,20,16,0.08);
+    display:flex; flex-direction:column;
+  }
+  .menu-card .top{ height:6px; } /* franja de color según el tipo de pizza */
+  .menu-card .icon{ font-size:34px; text-align:center; padding:10px 0 0 0; }
+  .menu-card .name{
+    font-family:'Fredoka',sans-serif; font-weight:600; font-size:13.5px;
+    text-align:center; padding:2px 8px 0 8px; color:var(--char);
+  }
+  .menu-card .price-tag{
+    font-family:'JetBrains Mono',monospace; font-weight:700; font-size:13px;
+    text-align:center; color:var(--marinara); padding:4px 0 10px 0;
+  }
+  .menu-card button{
+    margin:0 10px 10px 10px;
+    font-family:'Fredoka',sans-serif; font-weight:600; font-size:13px;
+    background:var(--ember); color:#fff; border:none; border-radius:999px;
+    padding:8px 0; cursor:pointer; transition:transform .15s ease;
+  }
+  .menu-card button:hover{ transform:translateY(-2px); }
+
+  /* --- Aviso de saldo insuficiente (pantalla "sinfondos") --- */
+  .no-funds{
+    border:1.5px dashed var(--marinara); border-radius:12px; padding:14px;
+    background:rgba(200,29,37,0.06); margin-bottom:14px;
+  }
+  .no-funds p{ margin:0 0 4px 0; font-size:14px; }
+
+  /* ==========================================================================
+     PANTALLA DE INICIO (antes de entrar al local)
+     ========================================================================== */
+  #start{
+    position:fixed; inset:0; z-index:20;
+    background:radial-gradient(circle at 50% 35%, #2a1c14 0%, #150f0b 70%);
+    display:flex; align-items:center; justify-content:center; flex-direction:column;
+    text-align:center; padding:24px;
+  }
+  #start h1{
+    font-family:'Fredoka',sans-serif; font-weight:700; font-size:clamp(40px,9vw,76px);
+    color:var(--mozzarella); margin:0 0 6px 0; letter-spacing:1px;
+    text-shadow:0 0 18px rgba(255,90,54,0.85), 0 0 46px rgba(255,90,54,0.45);
+  }
+  #start h1 b{ color:var(--ember); }
+  #start p.sub{ color:rgba(247,239,227,0.75); font-size:16px; margin:0 0 26px 0; }
+  #start .controls{ display:flex; gap:14px; flex-wrap:wrap; justify-content:center; margin-bottom:30px; }
+  #start .controls div{
+    background:rgba(247,239,227,0.06); border:1px solid rgba(247,239,227,0.18);
+    border-radius:10px; padding:10px 16px; color:var(--mozzarella); font-size:13px;
+    font-family:'JetBrains Mono',monospace;
+  }
+  #enterBtn{
+    font-family:'Fredoka',sans-serif; font-weight:600; font-size:18px;
+    background:var(--ember); color:#1b1410; border:none; border-radius:999px;
+    padding:16px 38px; cursor:pointer; box-shadow:0 0 30px rgba(255,90,54,0.55);
+    transition:transform .15s ease;
+  }
+  #enterBtn:hover{ transform:translateY(-3px) scale(1.02); }
+  #start .small{ margin-top:18px; font-size:12px; color:rgba(247,239,227,0.45); max-width:480px; }
+</style>
+</head>
+<body>
+
+<!--
+  ============================================================================
+  ESCENA 3D (A-Frame)
+  ============================================================================
+  fog: niebla exponencial para dar profundidad/ambiente al local cerrado.
+  vr-mode-ui: A-Frame agrega automáticamente el botón "Enter VR" (abajo a la
+  derecha) para usar la experiencia con un visor de Realidad Virtual real.
+-->
+<a-scene id="scene" vr-mode-ui="enabled: true" renderer="colorManagement: true" fog="type: exponential; color: #120c09; density: 0.035">
+
+  <!-- ==========================================================================
+       ASSETS
+       --------------------------------------------------------------------------
+       "menuCanvas" es un <canvas> 2D normal (no se ve en la página, A-Frame lo
+       precarga aquí dentro). Se dibuja por código con drawMenuCanvas() (ver
+       <script> al final del archivo) y luego se usa como textura de una sola
+       placa para el tablero de menú -> ver el comentario "TABLERO DE MENÚ"
+       más abajo para la explicación completa del bug que esto soluciona.
+       ========================================================================== -->
+  <a-assets>
+    <canvas id="menuCanvas" width="1000" height="890"></canvas>
+  </a-assets>
+
+  <!-- ==========================================================================
+       JUGADOR (cámara en primera persona)
+       --------------------------------------------------------------------------
+       IMPORTANTE — arquitectura correcta del "rig" de cámara en A-Frame:
+         #rig  (a-entity)  -> tiene "wasd-controls" (MUEVE la posición del jugador)
+           #cam (a-camera) -> tiene "look-controls" (solo ROTA la vista con el mouse)
+
+       En la versión anterior, "wasd-controls" estaba puesto en la cámara hija
+       en vez de en el "rig" padre. Esto causaba que el jugador SÍ se moviera
+       visualmente, pero el script de proximidad (que leía la posición del
+       "rig") nunca detectaba el movimiento real -> nunca aparecía el aviso
+       "Pulsa E" ni se abría el diálogo. Esa era la causa de que no se
+       pudieran hacer pedidos. Con esta estructura, #rig.object3D.position
+       ahora SÍ refleja dónde está parado el jugador en todo momento.
+       ========================================================================== -->
+  <a-entity id="rig" position="0 1.6 13" wasd-controls="acceleration:50">
+    <a-camera id="cam" look-controls="pointerLockEnabled:true">
+      <!-- Mira/cursor: permite hacer clic en objetos marcados con class="clickable" -->
+      <a-cursor id="cursor" raycaster="objects:.clickable; far:18" fuse="false"
+        geometry="primitive: ring; radiusInner:0.006; radiusOuter:0.009"
+        material="color:#ff5a36; shader:flat">
+      </a-cursor>
+    </a-camera>
+  </a-entity>
+
+  <!-- ==========================================================================
+       MUNDO / LOCAL — TODO está agrandado en conjunto con scale="2 2 2"
+       --------------------------------------------------------------------------
+       Esto es lo que resuelve "todo se ve pequeño, hazlo más grande": en vez de
+       recalcular a mano cada mesa, silla, mostrador, letrero, etc., se escala
+       UNA sola vez el contenedor que los agrupa a todos. Como el piso está en
+       y=0 (origen), el suelo se mantiene pegado a y=0 después de escalar, y
+       cualquier objeto que ya tocaba el piso lo sigue tocando (matemáticamente,
+       escalar de forma uniforme un objeto cuya base ya estaba en 0 no lo separa
+       del piso). El jugador (#rig, arriba) queda FUERA de este grupo, por lo que
+       mantiene su altura real de 1.6 m -> el local se siente el doble de grande
+       respecto a uno mismo, tal como en un mapa de Roblox. La velocidad de
+       movimiento (acceleration:50) y el rango del rayo del cursor (far:18) se
+       subieron junto con la escala para que recorrer el local más grande siga
+       sintiéndose ágil.
+       ========================================================================== -->
+  <a-entity id="world" scale="2 2 2">
+
+    <!-- ---------- Luces generales ---------- -->
+    <a-entity light="type: ambient; color: #4a3a30; intensity: 0.55"></a-entity>
+    <a-entity light="type: directional; color: #fff3e0; intensity: 0.25" position="2 6 4"></a-entity>
+
+    <!-- ---------- Piso ---------- -->
+    <a-plane rotation="-90 0 0" width="18" height="22" position="0 0 -3"
+      color="#5a3a26" material="roughness:0.85; metalness:0.05"></a-plane>
+    <!-- Alfombra/zona oscura frente al horno, solo decorativa -->
+    <a-plane rotation="-90 0 0" width="6" height="4" position="0 0.01 -7.4"
+      color="#3a261a" material="roughness:0.7"></a-plane>
+
+    <!-- ---------- Techo ---------- -->
+    <a-plane rotation="90 0 0" width="18" height="22" position="0 4.2 -3" color="#0f0a08"></a-plane>
+
+    <!-- ---------- Paredes ---------- -->
+    <a-plane width="18" height="4.4" position="0 2.1 -10" color="#241712"></a-plane>
+    <a-plane rotation="0 90 0" width="22" height="4.4" position="-9 2.1 -3" color="#1f140f"></a-plane>
+    <a-plane rotation="0 -90 0" width="22" height="4.4" position="9 2.1 -3" color="#1f140f"></a-plane>
+
+    <!-- ---------- Ventanas con vista nocturna (pared derecha) ---------- -->
+    <a-entity position="8.95 2 -6">
+      <a-plane rotation="0 -90 0" width="2.2" height="1.6" color="#0a2230" material="emissive:#123a4a; emissiveIntensity:0.5"></a-plane>
+      <a-box position="0.05 -0.1 0.3" rotation="0 -90 0" width="0.3" height="2.6" depth="0.3" color="#0a0d12" material="emissive:#ffb74d;emissiveIntensity:0.15"></a-box>
+      <a-box position="0.05 0.4 -0.4" rotation="0 -90 0" width="0.25" height="1.6" depth="0.25" color="#0a0d12" material="emissive:#4fd1c5;emissiveIntensity:0.15"></a-box>
+    </a-entity>
+    <a-entity position="8.95 2 -2">
+      <a-plane rotation="0 -90 0" width="2.2" height="1.6" color="#0a2230" material="emissive:#123a4a; emissiveIntensity:0.5"></a-plane>
+    </a-entity>
+
+    <!-- ==========================================================================
+         ARCO DE ENTRADA + LETRERO NEÓN
+         --------------------------------------------------------------------------
+         CORRECCIÓN DE TAMAÑO: antes, los postes (height=2.7) estaban centrados en
+         y=2.3, lo que dejaba su base flotando en y=0.95 (¡no tocaban el piso!).
+         La regla correcta para que la BASE de una caja toque el piso es:
+             posición_y_centro = altura / 2
+         Aquí los postes miden 3.0 de alto, así que su centro va en y=1.5
+         (1.5 - 1.5 = 0, la base queda exactamente en el piso).
+         ========================================================================== -->
+    <!-- Postes verticales (ahora sí tocan el suelo) -->
+    <a-box position="-1.9 1.5 4" width="0.32" height="3.0" depth="0.32" color="#150f0c"></a-box>
+    <a-box position="1.9 1.5 4" width="0.32" height="3.0" depth="0.32" color="#150f0c"></a-box>
+    <!-- Viga superior, apoyada justo encima de los postes (top de poste = 3.0) -->
+    <a-box position="0 3.16 4" width="4.2" height="0.32" depth="0.32" color="#150f0c"></a-box>
+
+    <!-- Letrero neón "RapiPizza", montado sobre la viga del arco -->
+    <a-entity position="0 3.8 4.05">
+      <a-text value="RapiPizza" align="center" width="6" color="#ff5a36" font="exo2bold" position="0 0 0.05"></a-text>
+      <a-plane width="3.4" height="1" color="#ff5a36" position="0 0 -0.05"
+        material="emissive:#ff5a36; emissiveIntensity:0.9; opacity:0.18; transparent:true"
+        animation="property: material.emissiveIntensity; from:0.6; to:1.3; dir:alternate; dur:1400; loop:true; easing:easeInOutSine">
+      </a-plane>
+    </a-entity>
+    <a-entity light="type: point; color:#ff5a36; intensity:0.9; distance:7" position="0 3.75 3.6"></a-entity>
+
+    <!-- ---------- Luces colgantes del techo ---------- -->
+    <a-entity position="-3 4.15 -1">
+      <a-cylinder radius="0.02" height="0.9" color="#2a2018"></a-cylinder>
+      <a-sphere radius="0.13" position="0 -0.5 0" color="#3a2a1c" material="emissive:#ffcf8a;emissiveIntensity:0.8"></a-sphere>
+      <a-entity light="type: point; color:#ffcf8a; intensity:0.55; distance:5" position="0 -0.5 0"></a-entity>
+    </a-entity>
+    <a-entity position="3 4.15 -3">
+      <a-cylinder radius="0.02" height="0.9" color="#2a2018"></a-cylinder>
+      <a-sphere radius="0.13" position="0 -0.5 0" color="#3a2a1c" material="emissive:#ffcf8a;emissiveIntensity:0.8"></a-sphere>
+      <a-entity light="type: point; color:#ffcf8a; intensity:0.55; distance:5" position="0 -0.5 0"></a-entity>
+    </a-entity>
+    <a-entity position="-2.6 4.15 -6.5">
+      <a-cylinder radius="0.02" height="0.9" color="#2a2018"></a-cylinder>
+      <a-sphere radius="0.13" position="0 -0.5 0" color="#3a2a1c" material="emissive:#ffcf8a;emissiveIntensity:0.8"></a-sphere>
+      <a-entity light="type: point; color:#ffcf8a; intensity:0.55; distance:5" position="0 -0.5 0"></a-entity>
+    </a-entity>
+
+    <!-- ==========================================================================
+         MESAS Y SILLAS (3 conjuntos) — cada silla tiene asiento + respaldo,
+         no son simples cubos, para que se reconozcan claramente como sillas.
+         ========================================================================== -->
+    <a-entity position="-4.5 0 -1">
+      <a-cylinder radius="0.75" height="0.07" position="0 0.78 0" color="#3a2a1c" material="roughness:0.5"></a-cylinder>
+      <a-cylinder radius="0.07" height="0.78" position="0 0.39 0" color="#211711"></a-cylinder>
+      <a-cylinder radius="0.34" height="0.04" position="0 0.02 0" color="#1c130d"></a-cylinder>
+      <a-entity position="1.1 0 0" rotation="0 -90 0">
+        <a-cylinder radius="0.06" height="0.46" position="0 0.23 0" color="#241a14"></a-cylinder>
+        <a-box width="0.48" height="0.07" depth="0.48" position="0 0.47 0" color="#c81d25"></a-box>
+        <a-box width="0.48" height="0.58" depth="0.07" position="0 0.76 -0.21" color="#c81d25"></a-box>
+      </a-entity>
+      <a-entity position="-1.1 0 0" rotation="0 90 0">
+        <a-cylinder radius="0.06" height="0.46" position="0 0.23 0" color="#241a14"></a-cylinder>
+        <a-box width="0.48" height="0.07" depth="0.48" position="0 0.47 0" color="#c81d25"></a-box>
+        <a-box width="0.48" height="0.58" depth="0.07" position="0 0.76 -0.21" color="#c81d25"></a-box>
+      </a-entity>
+    </a-entity>
+
+    <a-entity position="4 0 -3.2">
+      <a-cylinder radius="0.75" height="0.07" position="0 0.78 0" color="#3a2a1c" material="roughness:0.5"></a-cylinder>
+      <a-cylinder radius="0.07" height="0.78" position="0 0.39 0" color="#211711"></a-cylinder>
+      <a-cylinder radius="0.34" height="0.04" position="0 0.02 0" color="#1c130d"></a-cylinder>
+      <a-entity position="1.1 0 0" rotation="0 -90 0">
+        <a-cylinder radius="0.06" height="0.46" position="0 0.23 0" color="#241a14"></a-cylinder>
+        <a-box width="0.48" height="0.07" depth="0.48" position="0 0.47 0" color="#4c9a4a"></a-box>
+        <a-box width="0.48" height="0.58" depth="0.07" position="0 0.76 -0.21" color="#4c9a4a"></a-box>
+      </a-entity>
+      <a-entity position="-1.1 0 0" rotation="0 90 0">
+        <a-cylinder radius="0.06" height="0.46" position="0 0.23 0" color="#241a14"></a-cylinder>
+        <a-box width="0.48" height="0.07" depth="0.48" position="0 0.47 0" color="#4c9a4a"></a-box>
+        <a-box width="0.48" height="0.58" depth="0.07" position="0 0.76 -0.21" color="#4c9a4a"></a-box>
+      </a-entity>
+    </a-entity>
+
+    <a-entity position="-3.5 0 -5.5">
+      <a-cylinder radius="0.75" height="0.07" position="0 0.78 0" color="#3a2a1c" material="roughness:0.5"></a-cylinder>
+      <a-cylinder radius="0.07" height="0.78" position="0 0.39 0" color="#211711"></a-cylinder>
+      <a-cylinder radius="0.34" height="0.04" position="0 0.02 0" color="#1c130d"></a-cylinder>
+      <a-entity position="1.1 0 0" rotation="0 -90 0">
+        <a-cylinder radius="0.06" height="0.46" position="0 0.23 0" color="#241a14"></a-cylinder>
+        <a-box width="0.48" height="0.07" depth="0.48" position="0 0.47 0" color="#ff5a36"></a-box>
+        <a-box width="0.48" height="0.58" depth="0.07" position="0 0.76 -0.21" color="#ff5a36"></a-box>
+      </a-entity>
+      <a-entity position="-1.1 0 0" rotation="0 90 0">
+        <a-cylinder radius="0.06" height="0.46" position="0 0.23 0" color="#241a14"></a-cylinder>
+        <a-box width="0.48" height="0.07" depth="0.48" position="0 0.47 0" color="#ff5a36"></a-box>
+        <a-box width="0.48" height="0.58" depth="0.07" position="0 0.76 -0.21" color="#ff5a36"></a-box>
+      </a-entity>
+    </a-entity>
+
+    <!-- ---------- Plantas decorativas ---------- -->
+    <a-entity position="-8.4 0 1">
+      <a-cylinder radius="0.25" height="0.5" position="0 0.25 0" color="#3a261a"></a-cylinder>
+      <a-sphere radius="0.45" position="0 0.9 0" color="#3f7d3f"></a-sphere>
+      <a-sphere radius="0.32" position="0.2 1.25 0.1" color="#4c9a4a"></a-sphere>
+    </a-entity>
+    <a-entity position="8.4 0 -8.5">
+      <a-cylinder radius="0.25" height="0.5" position="0 0.25 0" color="#3a261a"></a-cylinder>
+      <a-sphere radius="0.45" position="0 0.9 0" color="#3f7d3f"></a-sphere>
+    </a-entity>
+
+    <!-- ---------- Horno de leña ---------- -->
+    <a-entity position="3.3 0 -9">
+      <a-box width="1.6" height="2" depth="1.2" position="0 1 0" color="#2a1a12"></a-box>
+      <a-plane width="0.9" height="0.7" position="0 1.25 0.61" color="#ff7a3d" material="emissive:#ff7a3d;emissiveIntensity:1.4"
+        animation="property: material.emissiveIntensity; from:1.0; to:1.8; dir:alternate; dur:600; loop:true"></a-plane>
+      <a-entity light="type: point; color:#ff7a3d; intensity:0.7; distance:4" position="0 1.3 0.8"></a-entity>
+    </a-entity>
+
+    <!-- ---------- Cajas de pizza apiladas (decoración) ---------- -->
+    <a-entity position="-1.4 0 -7.6">
+      <a-box width="0.5" height="0.08" depth="0.5" position="0 0.04 0" color="#d8c6a0"></a-box>
+      <a-box width="0.5" height="0.08" depth="0.5" position="0 0.14 0" color="#e3d3ad"></a-box>
+      <a-box width="0.5" height="0.08" depth="0.5" position="0 0.24 0" color="#d8c6a0"></a-box>
+    </a-entity>
+
+    <!-- ==========================================================================
+         MOSTRADOR — también es "clickable" para que sea más fácil iniciar el
+         diálogo (no hace falta apuntar exactamente al personaje pequeño).
+         ========================================================================== -->
+    <a-box id="counter" class="clickable" position="0 0.5 -7" width="4" height="1" depth="0.6" color="#3a2417" material="roughness:0.6"></a-box>
+    <a-box position="0 1.02 -7" width="4" height="0.04" depth="0.62" color="#1c120a"></a-box>
+
+    <!-- ==========================================================================
+         ZONA DE INTERACCIÓN INVISIBLE
+         --------------------------------------------------------------------------
+         Caja grande, transparente (opacity:0) pero SÍ detectable por el rayo del
+         cursor (mira), que cubre el mostrador y la recepcionista. Esto hace mucho
+         más fácil "apuntarle" a la recepcionista sin tener que acertar con
+         precisión milimétrica a su modelo. (opacity:0 + transparent:true deja el
+         objeto invisible, pero su geometría sigue intersectando el raycaster).
+         ========================================================================== -->
+    <a-box id="interactionZone" class="clickable" position="0 1.3 -7.6" width="4.4" height="2.6" depth="2"
+      material="opacity:0; transparent:true"></a-box>
+
+    <!-- ==========================================================================
+         TABLERO DE MENÚ EN LA PARED
+         --------------------------------------------------------------------------
+         ANTES este tablero se armaba con ~16 planos y textos de A-Frame
+         superpuestos a apenas 0.01 unidades de distancia entre sí (un fondo,
+         una franja de encabezado, círculos, 4 líneas divisorias y 8 textos).
+         Eso causaba "z-fighting" (parpadeo entre capas casi coincidentes) y
+         se notaba más al acercarse, exactamente el bug reportado ("se lagea
+         y se queda en blanco al acercarme").
+
+         SOLUCIÓN: todo el contenido (encabezado, productos, precios, ícono)
+         se dibuja UNA sola vez con JavaScript sobre un <canvas> oculto
+         (ver #menuCanvas en <a-assets> y la función drawMenuCanvas() en el
+         <script>), y ese canvas se usa como la textura de UNA sola placa
+         (#menuBoardPlane). Resultado: ni una sola capa superpuesta -> cero
+         parpadeo, y un solo objeto en vez de dieciséis -> mucho más liviano.
+         ========================================================================== -->
+    <a-entity position="0 2.55 -9.78">
+      <!-- Marco trasero oscuro: al ser más grande que la placa frontal y no
+           coincidir exactamente con ella, asoma solo como borde -> no genera
+           z-fighting (no son superficies coincidentes, solo el borde se ve). -->
+      <a-plane width="3" height="2.7" color="#0e0a08" position="0 0 -0.06"></a-plane>
+      <!-- Única placa con el contenido del menú (textura = canvas dibujado por JS) -->
+      <a-plane id="menuBoardPlane" width="2.8" height="2.5" color="#ffffff"></a-plane>
+    </a-entity>
+    <a-entity light="type: point; color:#fff3e0; intensity:0.6; distance:3.5" position="0 2.8 -9.4"></a-entity>
+
+
+    <!-- ==========================================================================
+         RECEPCIONISTA — personaje de bloques (estilo Roblox).
+         --------------------------------------------------------------------------
+         Tiene su PROPIA escala (0.75) además de la escala del grupo "world"
+         (2) para resultar GRANDE e imponente de verdad, fácil de ver y de
+         "apuntar" con la mira desde lejos. Cálculo de altura final:
+             altura sin escalar (~2.35 m) x 2 (world) x 0.75 (propia) ≈ 3.5 m
+         (fue subiendo en cada ajuste: 1.9 m -> 2.6 m -> ahora 3.5 m, más del
+         doble de la altura de la cámara del jugador de 1.6 m).
+         ========================================================================== -->
+    <a-entity id="receptionist" class="clickable" position="0 0 -8.35" scale="0.75 0.75 0.75"
+      animation="property: position; to: 0 0.04 -8.35; dir: alternate; dur: 1800; loop: true; easing: easeInOutSine">
+      <!-- piernas -->
+      <a-box position="-0.16 0.35 0" width="0.24" height="0.7" depth="0.24" color="#241a14"></a-box>
+      <a-box position="0.16 0.35 0" width="0.24" height="0.7" depth="0.24" color="#241a14"></a-box>
+      <!-- torso (delantal) -->
+      <a-box position="0 1.05 0" width="0.62" height="0.8" depth="0.36" color="#c81d25"></a-box>
+      <a-box position="0 1.1 0.19" width="0.34" height="0.4" depth="0.02" color="#f7efe3"></a-box>
+      <a-text value="RP" align="center" color="#c81d25" width="2.2" position="0 1.1 0.21"></a-text>
+      <!-- brazos -->
+      <a-box position="-0.42 1.05 0" width="0.22" height="0.78" depth="0.22" color="#e8b894"></a-box>
+      <a-box position="0.42 1.05 0" width="0.22" height="0.78" depth="0.22" color="#e8b894"></a-box>
+      <!-- cabeza -->
+      <a-box position="0 1.62 0" width="0.46" height="0.46" depth="0.46" color="#e8b894"></a-box>
+      <a-box position="0 1.7 0.2" width="0.5" height="0.12" depth="0.08" color="#241a14"></a-box>
+      <!-- gorro de cocina -->
+      <a-cylinder position="0 1.97 0" radius-bottom="0.27" radius-top="0.17" height="0.28" color="#f7efe3"></a-cylinder>
+      <a-sphere position="0 2.15 0" radius="0.2" color="#f7efe3"></a-sphere>
+    </a-entity>
+
+  </a-entity> <!-- fin de #world -->
+
+  <!-- ============================================================================
+       OBJETOS DE SIMULACIÓN (FUERA del world entity para escala 1:1 con el jugador)
+       ------------------------------------------------------------------------------
+       Estos objetos usan coordenadas de MUNDO REAL (ya con el ×2 aplicado), porque
+       están fuera de <a-entity id="world" scale="2 2 2">. Esto simplifica el
+       cálculo: la posición A-Frame que se le pasa al setAttribute es directamente
+       la posición del jugador (rig), sin dividir entre la escala.
+
+       Objetos:
+         #deliveryPizzaBox  → caja de pizza en el mostrador (aparece al terminar
+                              el timer de preparación). El mostrador en world local
+                              está en (0, 1.0, -7) × 2 escala = (0, 2.0, -14) en
+                              mundo real. La caja flota a Y=2.25 sobre él.
+
+         #tablePizzaBox     → caja reposicionada sobre la mesa elegida. Se mueve
+                              vía JS cuando el jugador la coloca.
+
+         .table-zone        → cilindros invisibles SOBRE el tope de cada mesa.
+                              Se vuelven "clickable" durante el estado "carrying".
+                              data-wx/data-wz: coords mundo real de la mesa.
+                              data-table: id de mesa ("1", "2", "3").
+
+         .sit-zone          → cajas invisibles EN cada silla.
+                              Se vuelven "clickable" durante el estado "placed",
+                              solo para las sillas de la mesa que tiene la caja.
+                              data-wx/data-wz: coords mundo real de la silla (usadas
+                              para teleportar el rig al sentarse).
+                              data-table: id de la mesa asociada.
+       ============================================================================ -->
+
+  <!-- --- Caja de pizza en el mostrador (oculta hasta que el pedido está listo) --- -->
+  <a-entity id="deliveryPizzaBox" visible="false">
+    <!-- Plataforma de luz dorada pulsante (sobre el mostrador) -->
+    <a-plane rotation="-90 0 0" width="1.4" height="1.4"
+      position="0 2.12 -14.1"
+      color="#ffcf6b"
+      material="emissive:#ffcf6b; emissiveIntensity:1; transparent:true; opacity:0.7"
+      animation="property: material.emissiveIntensity; from:0.6; to:1.6; dir:alternate; dur:700; loop:true">
+    </a-plane>
+    <!-- Base de la caja (cartón) -->
+    <a-box width="0.9" height="0.22" depth="0.9"
+      position="0 2.23 -14.1" color="#e3c98a"
+      material="roughness:0.8"></a-box>
+    <!-- Tapa de la caja (se abre y cierra levemente para llamar la atención) -->
+    <a-box width="0.92" height="0.1" depth="0.92"
+      position="0 2.38 -14.1" color="#d4b870"
+      material="roughness:0.8"
+      animation="property: rotation; from: -12 0 0; to: 0 0 0; dir:alternate; dur:1000; loop:true; easing:easeInOutSine">
+    </a-box>
+    <!-- Etiqueta "RapiPizza" sobre la tapa -->
+    <a-text value="RapiPizza" align="center" color="#c81d25"
+      width="3" position="0 2.5 -13.65" rotation="0 0 0"
+      font="exo2bold">
+    </a-text>
+    <!-- Luz de ambiente que emana de la plataforma dorada -->
+    <a-entity light="type:point; color:#ffcf6b; intensity:0.5; distance:3"
+      position="0 2.3 -14.1"></a-entity>
+    <!-- Zona interactuable invisible (se activa como "clickable" cuando el pedido está listo) -->
+    <a-box id="deliveryPickupZone" class="pickup-zone"
+      position="0 2.3 -14.1" width="1.4" height="0.7" depth="1.4"
+      material="opacity:0; transparent:true">
+    </a-box>
+  </a-entity>
+
+  <!-- --- Caja de pizza en la mesa (oculta, se reposiciona al colocarla) --- -->
+  <a-entity id="tablePizzaBox" visible="false" position="0 0 0">
+    <!-- Base de la caja abierta con la pizza visible dentro -->
+    <a-box width="0.9" height="0.22" depth="0.9"
+      position="0 0.11 0" color="#e3c98a" material="roughness:0.8"></a-box>
+    <!-- Tapa abierta (inclinada hacia atrás para ver la pizza) -->
+    <a-box width="0.92" height="0.1" depth="0.92"
+      position="0 0.28 -0.35" color="#d4b870" material="roughness:0.8"
+      rotation="-70 0 0"></a-box>
+    <!-- Pizza circular (disco rojo = marinara) -->
+    <a-cylinder radius="0.38" height="0.04"
+      position="0 0.24 0" color="#c81d25" material="roughness:0.5"></a-cylinder>
+    <!-- Queso (puntos amarillos) -->
+    <a-sphere radius="0.07" position=" 0.14 0.27  0.12" color="#ffcf6b"></a-sphere>
+    <a-sphere radius="0.06" position="-0.18 0.27  0.08" color="#ffcf6b"></a-sphere>
+    <a-sphere radius="0.065" position=" 0.1  0.27 -0.16" color="#ffcf6b"></a-sphere>
+    <a-sphere radius="0.055" position="-0.05 0.27  0.22" color="#ffcf6b"></a-sphere>
+    <!-- Zona interactuable para comer (se activa al sentarse) -->
+    <a-box id="eatZone" class="eat-zone"
+      width="1.2" height="0.6" depth="1.2" position="0 0.2 0"
+      material="opacity:0; transparent:true">
+    </a-box>
+  </a-entity>
+
+  <!-- --- Zonas de mesa (clickeables solo cuando el jugador lleva la caja) ---
+       CÁLCULO DE POSICIÓN MUNDO REAL:
+         Posición local en world entity × escala 2 = posición mundo real.
+         Mesa 1 local (-4.5, 0, -1)  → tope mesa ≈ (-9.0,  1.72, -2.0)
+         Mesa 2 local (4.0,  0, -3.2)→ tope mesa ≈ ( 8.0,  1.72, -6.4)
+         Mesa 3 local (-3.5, 0, -5.5)→ tope mesa ≈ (-7.0,  1.72, -11.0)
+       (tope = 0.78 × 2 = 1.56 de altura; +0.16 para estar sobre la superficie)
+       data-wx/data-wz: coordenadas mundo real de la mesa (para colocar la caja)
+       data-table: id de la mesa ("1"/"2"/"3")
+       --- -->
+  <a-cylinder class="table-zone" id="tableZone1" data-table="1"
+    data-wx="-9" data-wz="-2"
+    radius="1.5" height="0.08"
+    position="-9 1.72 -2"
+    material="opacity:0; transparent:true">
+  </a-cylinder>
+  <a-cylinder class="table-zone" id="tableZone2" data-table="2"
+    data-wx="8" data-wz="-6.4"
+    radius="1.5" height="0.08"
+    position="8 1.72 -6.4"
+    material="opacity:0; transparent:true">
+  </a-cylinder>
+  <a-cylinder class="table-zone" id="tableZone3" data-table="3"
+    data-wx="-7" data-wz="-11"
+    radius="1.5" height="0.08"
+    position="-7 1.72 -11"
+    material="opacity:0; transparent:true">
+  </a-cylinder>
+
+  <!-- --- Zonas de silla (clickeables solo cuando la pizza está en una mesa) ---
+       CÁLCULO DE POSICIÓN MUNDO REAL (silla = mesa + offset ±1.1 × escala 2):
+         Mesa 1 (-9, ?, -2) → silla derecha (-9 + 2.2 = -6.8, ?, -2)
+                              → silla izquierda (-9 - 2.2 = -11.2, ?, -2)
+         Mesa 2 (8, ?, -6.4) → sillas: (10.2, ?, -6.4) y (5.8, ?, -6.4)
+         Mesa 3 (-7, ?, -11) → sillas: (-4.8, ?, -11) y (-9.2, ?, -11)
+       data-wx/data-wz: usados en JS para teleportar el rig al sentarse.
+       data-table: id de la mesa (para activar solo las sillas de esa mesa).
+       --- -->
+  <!-- Sillas de mesa 1 -->
+  <a-box class="sit-zone" data-table="1" data-wx="-6.8" data-wz="-2"
+    position="-6.8 1.1 -2" width="1.1" height="1.2" depth="1.1"
+    material="opacity:0; transparent:true"></a-box>
+  <a-box class="sit-zone" data-table="1" data-wx="-11.2" data-wz="-2"
+    position="-11.2 1.1 -2" width="1.1" height="1.2" depth="1.1"
+    material="opacity:0; transparent:true"></a-box>
+
+  <!-- Sillas de mesa 2 -->
+  <a-box class="sit-zone" data-table="2" data-wx="10.2" data-wz="-6.4"
+    position="10.2 1.1 -6.4" width="1.1" height="1.2" depth="1.1"
+    material="opacity:0; transparent:true"></a-box>
+  <a-box class="sit-zone" data-table="2" data-wx="5.8" data-wz="-6.4"
+    position="5.8 1.1 -6.4" width="1.1" height="1.2" depth="1.1"
+    material="opacity:0; transparent:true"></a-box>
+
+  <!-- Sillas de mesa 3 -->
+  <a-box class="sit-zone" data-table="3" data-wx="-4.8" data-wz="-11"
+    position="-4.8 1.1 -11" width="1.1" height="1.2" depth="1.1"
+    material="opacity:0; transparent:true"></a-box>
+  <a-box class="sit-zone" data-table="3" data-wx="-9.2" data-wz="-11"
+    position="-9.2 1.1 -11" width="1.1" height="1.2" depth="1.1"
+    material="opacity:0; transparent:true"></a-box>
+
+</a-scene>
+
+<!-- ============================================================================
+     HUD (capa 2D)
+     ============================================================================ -->
+<div id="hud">
+  <div id="brand"><div class="dot"></div><span>Rapi<b>Pizza</b></span></div>
+  <div id="crosshair"></div>
+  <div id="hint">
+    <div class="key">WASD mover</div>
+    <div class="key">Mouse mirar</div>
+    <div class="key">E hablar</div>
+  </div>
+  <div id="prompt">Pulsa E para hablar con la recepcionista</div>
+  <button id="orderFab">🍕 Pedir pizza</button>
+  <div id="balanceHud">
+    <div class="coin">🪙</div>
+    <div><span class="amount" id="balanceAmount">S/ 50.00</span><span class="label">tu saldo</span></div>
+  </div>
+
+  <!-- ========================================================================
+       ELEMENTOS DEL HUD DE SIMULACIÓN
+       ------------------------------------------------------------------------
+       Todos comienzan ocultos (opacity:0 / top negativo) y se muestran vía JS
+       añadiendo la clase ".show" o cambiando valores inline según el estado.
+       ======================================================================== -->
+  <!-- Notificación grande (baja desde arriba) -->
+  <div id="pizzaToast">
+    <h2 id="toastTitle"></h2>
+    <p id="toastSub"></p>
+  </div>
+  <!-- Countdown mientras la pizza se prepara -->
+  <div id="prepBadge">
+    <span class="spin">🍕</span>
+    <span id="prepCount">20s</span>&nbsp;preparando tu pedido...
+  </div>
+  <!-- Indicador de llevar la caja de pizza -->
+  <div id="carryHud">
+    <span class="icon">📦</span>
+    <strong>Llevas tu pizza</strong>
+    <small>Apunta a una mesa y haz clic</small>
+  </div>
+  <!-- Barra de progreso "comiendo" -->
+  <div id="eatOverlay">
+    <p id="eatMsg">😋 Comiendo pizza...</p>
+    <div id="eatBar"><div id="eatBarFill"></div></div>
+  </div>
+  <!-- Botón para levantarse de la silla -->
+  <button id="standBtn">🧍 Levantarse</button>
+</div>
+
+<!-- ============================================================================
+     TICKET DE DIÁLOGO — su contenido se redibuja por completo desde JS
+     cada vez que cambia la "pantalla" actual de la conversación.
+     ============================================================================ -->
+<div id="ticket">
+  <div id="ticketHead">
+    <div id="ticketSpeaker">Mariana · Recepcionista</div>
+    <button id="ticketClose" title="Cerrar">✕</button>
+  </div>
+  <div id="ticketBody"></div>
+</div>
+
+<!-- ============================================================================
+     PANTALLA DE INICIO
+     ============================================================================ -->
+<div id="start">
+  <h1>Rapi<b>Pizza</b> VR</h1>
+  <p class="sub">Camina hasta el local y pide tu pizza con la recepcionista</p>
+  <div class="controls">
+    <div>WASD — moverte</div>
+    <div>Mouse — mirar alrededor</div>
+    <div>E o clic — hablar (apunta a la recepcionista)</div>
+    <div>🍕 botón inferior — pedir desde cualquier lugar</div>
+    <div>Esc — salir del diálogo</div>
+  </div>
+  <button id="enterBtn">🍕 Entrar al local</button>
+  <div class="small">Empiezas con 🪙 S/ 50.00 de saldo para tus pedidos · El botón "🍕 Pedir pizza" siempre está disponible abajo en pantalla · También puedes usar un visor VR con el botón "Enter VR" de la esquina inferior derecha</div>
+</div>
+
+<script>
+/* ==============================================================================
+   RAPIPIZZA VR — LÓGICA DE JUEGO
+   ------------------------------------------------------------------------------
+   Índice de este script:
+     1. Datos de productos y estado del juego (carrito, saldo, pantalla actual)
+     2. Tablero de menú en 3D: se dibuja una sola vez en un <canvas> y se usa
+        como textura (soluciona el parpadeo/lag que tenía el diseño anterior
+        con muchas capas superpuestas de A-Frame)
+     3. Sonido simple (beep) para dar retroalimentación al pulsar botones
+     4. Render del "ticket" de diálogo según la pantalla activa (máquina de
+        estados muy simple: saludo -> menu -> agregado -> resumen -> final,
+        con una rama extra "sinfondos" si no alcanza el saldo)
+     5. Apertura / cierre del diálogo (pausa el movimiento mientras se conversa)
+     6. Interacción por puntería: detecta si la mira apunta a la recepcionista
+        para mostrar el aviso "Pulsa E"
+     7. Eventos de teclado/clic y arranque del juego desde la pantalla de inicio
+   ============================================================================== */
+(function(){
+  "use strict";
+
+  /* ---------------------------------------------------------------------------
+   * 1. DATOS Y ESTADO
+   * ------------------------------------------------------------------------- */
+
+  // Catálogo de productos. "color" se usa como franja de color en cada tarjeta
+  // del menú y "emoji" como ícono grande dentro de la tarjeta.
+  const PRODUCTS = [
+    { id:"americana",   nombre:"Pizza Americana",   precio:25.90, emoji:"🍕", color:"#c81d25" },
+    { id:"pepperoni",   nombre:"Pizza Pepperoni",   precio:25.90, emoji:"🍕", color:"#ff5a36" },
+    { id:"hawaiana",    nombre:"Pizza Hawaiana",    precio:12.00, emoji:"🍍", color:"#4c9a4a" },
+    { id:"vegetariana", nombre:"Pizza Vegetariana", precio:12.00, emoji:"🥦", color:"#4c9a4a" }
+  ];
+
+  let balance = 50.00;       // saldo disponible del jugador (estilo "Robux")
+  let lastOrderTotal = 0;    // total pagado del último pedido confirmado (para mostrarlo en pantalla "final")
+  let cart = [];             // carrito actual: [{id, nombre, precio, emoji, color, cantidad}, ...]
+  let currentScreen = "saludo"; // pantalla activa dentro del diálogo
+  let orderNumber = null;       // número de orden generado al confirmar un pedido
+  let dialogueOpen = false;     // ¿está abierto el panel de diálogo ahora mismo?
+  let nearReceptionist = false; // ¿está la mira (crosshair) apuntando a la recepcionista/mostrador?
+
+  // --- Variables de la simulación de pedido (post-confirmación) ---
+  // simState: estado actual de la simulación (idle/preparing/ready/carrying/placed/sitting/eating)
+  let simState = "idle";
+  // orderPendingSimulation: flag que indica que al cerrar el diálogo debe arrancar el timer
+  let orderPendingSimulation = false;
+  // prepInterval: referencia al setInterval del countdown de preparación
+  let prepInterval = null;
+  // selectedTableId: id de la mesa donde el jugador dejó la caja ("1", "2" o "3")
+  let selectedTableId = null;
+
+  const fmt = n => "S/ " + n.toFixed(2);
+  const cartTotal = () => cart.reduce((s,i)=> s + i.precio*i.cantidad, 0);
+  const cartCount = () => cart.reduce((s,i)=> s + i.cantidad, 0);
+
+  /** Agrega una unidad del producto "id" al carrito (o suma 1 si ya existía). */
+  function addToCart(id){
+    const p = PRODUCTS.find(x=>x.id===id);
+    if(!p) return;
+    const existing = cart.find(x=>x.id===id);
+    if(existing) existing.cantidad++;
+    else cart.push({ ...p, cantidad:1 });
+  }
+
+  // Referencias al HUD de saldo
+  const balanceAmountEl = document.getElementById("balanceAmount");
+  const balanceHudEl = document.getElementById("balanceHud");
+  /** Actualiza el número del HUD de saldo y le da un pequeño "rebote" visual. */
+  function updateBalanceHud(){
+    balanceAmountEl.textContent = fmt(balance);
+    balanceHudEl.classList.add("bump");
+    setTimeout(()=> balanceHudEl.classList.remove("bump"), 220);
+  }
+
+  /* ---------------------------------------------------------------------------
+   * 2. TABLERO DE MENÚ EN 3D — dibujado una sola vez en <canvas>
+   * ------------------------------------------------------------------------------
+   * BUG ORIGINAL: el tablero se armaba con ~16 planos y textos de A-Frame
+   * superpuestos a solo 0.01 unidades de distancia entre capas (fondo, franja
+   * roja del encabezado, círculos, líneas divisorias y 8 textos). Eso es la
+   * receta clásica del "z-fighting": dos superficies casi a la misma
+   * profundidad compiten por cuál se dibuja encima, y el resultado es un
+   * parpadeo que empeora cuanto más cerca/de cierto ángulo mira la cámara
+   * (justo lo que describiste: "se lagea y se queda en blanco al acercarme").
+   *
+   * SOLUCIÓN: dibujar TODO el contenido del menú una sola vez con la API 2D
+   * de <canvas> (igual que se haría en una página web normal) y usar ese
+   * canvas como la ÚNICA textura de una sola placa (#menuBoardPlane, ver el
+   * HTML). Con un solo plano no hay nada con qué pueda hacer z-fighting, y
+   * además es mucho más liviano para la tarjeta gráfica (1 objeto en vez de
+   * 16).
+   * ------------------------------------------------------------------------- */
+  const MENU_ITEMS = [
+    { nombre:"Pizza Americana",   precio:"S/ 25.90" },
+    { nombre:"Pizza Pepperoni",   precio:"S/ 25.90" },
+    { nombre:"Pizza Hawaiana",    precio:"S/ 12.00" },
+    { nombre:"Pizza Vegetariana", precio:"S/ 12.00" }
+  ];
+
+  /** Dibuja el contenido completo del tablero (encabezado, productos, precios) sobre #menuCanvas. */
+  function drawMenuCanvas(){
+    const canvas = document.getElementById("menuCanvas");
+    if(!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width, H = canvas.height;
+    const pad = 26;
+
+    // Fondo / panel interior
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = "#1c130d";
+    ctx.fillRect(0, 0, W, H);
+
+    // Franja de encabezado
+    const headerTop = pad, headerH = 130;
+    ctx.fillStyle = "#c81d25";
+    ctx.fillRect(pad, headerTop, W - pad*2, headerH);
+
+    // Ícono circular decorativo dentro del encabezado
+    const iconX = pad + 80, iconY = headerTop + headerH/2;
+    ctx.beginPath(); ctx.fillStyle = "#ffcf6b"; ctx.arc(iconX, iconY, 34, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.fillStyle = "#c81d25"; ctx.arc(iconX, iconY, 24, 0, Math.PI*2); ctx.fill();
+
+    // Título del encabezado
+    ctx.fillStyle = "#f7efe3";
+    ctx.font = "700 56px 'Fredoka', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("MENÚ DEL DÍA", W/2 + 30, iconY);
+
+    // Filas de productos (nombre a la izquierda, precio a la derecha)
+    const rowsTop = headerTop + headerH + 50;
+    const rowsBottom = H - pad - 110;
+    const rowH = (rowsBottom - rowsTop) / MENU_ITEMS.length;
+
+    MENU_ITEMS.forEach((item, i)=>{
+      const y = rowsTop + rowH * i;
+
+      // Línea divisoria (la primera más marcada, como un subrayado del encabezado)
+      ctx.strokeStyle = i === 0 ? "#c81d25" : "rgba(247,239,227,0.18)";
+      ctx.lineWidth = i === 0 ? 5 : 2;
+      ctx.beginPath();
+      ctx.moveTo(pad + 30, y);
+      ctx.lineTo(W - pad - 30, y);
+      ctx.stroke();
+
+      const textY = y + rowH/2 + 6;
+
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#f7efe3";
+      ctx.font = "600 42px 'Fredoka', sans-serif";
+      ctx.fillText(item.nombre, pad + 40, textY);
+
+      ctx.textAlign = "right";
+      ctx.fillStyle = "#ffcf6b";
+      ctx.font = "700 38px 'JetBrains Mono', monospace";
+      ctx.fillText(item.precio, W - pad - 40, textY);
+    });
+
+    // Pie del tablero
+    const footTop = H - pad - 100;
+    ctx.fillStyle = "#0e0a08";
+    ctx.fillRect(pad, footTop, W - pad*2, 100);
+    ctx.fillStyle = "#ff5a36";
+    ctx.font = "700 34px 'Fredoka', sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("Pide en el mostrador", W/2, footTop + 50);
+  }
+
+  /**
+   * Dibuja el canvas y lo aplica como textura a #menuBoardPlane. Si la placa
+   * ya tenía una textura (de una llamada anterior), simplemente la marca
+   * como "needsUpdate" para refrescarla; si es la primera vez, crea el
+   * material asignando material.src al canvas.
+   */
+  function refreshMenuBoardTexture(){
+    drawMenuCanvas();
+    const planeEl = document.getElementById("menuBoardPlane");
+    if(!planeEl) return;
+    const mesh = planeEl.getObject3D("mesh");
+    if(mesh && mesh.material && mesh.material.map){
+      mesh.material.map.needsUpdate = true;
+    } else {
+      planeEl.setAttribute("material", "src", "#menuCanvas");
+    }
+  }
+
+  // Se dibuja de inmediato (con la tipografía que esté disponible en ese
+  // momento) y se vuelve a dibujar cuando las fuentes web (Fredoka /
+  // JetBrains Mono) terminen de cargar, para que el texto se vea con la
+  // tipografía correcta sin tener que esperar a que carguen para mostrar
+  // ALGO en el tablero.
+  refreshMenuBoardTexture();
+  if(document.fonts && document.fonts.ready){
+    document.fonts.ready.then(refreshMenuBoardTexture);
+  }
+
+  /* ---------------------------------------------------------------------------
+   * 3. SONIDO (generado por código, sin archivos de audio externos)
+   * ------------------------------------------------------------------------- */
+  let actx;
+  function beep(freq, dur){
+    try{
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.frequency.value = freq;
+      o.type = "sine";
+      g.gain.value = 0.05;
+      o.connect(g); g.connect(actx.destination);
+      o.start();
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.stop(actx.currentTime + dur);
+    }catch(e){ /* el audio es decorativo: si falla, simplemente no suena */ }
+  }
+
+  /* ---------------------------------------------------------------------------
+   * 4. RENDER DEL DIÁLOGO
+   * ------------------------------------------------------------------------- */
+  const ticketBody = document.getElementById("ticketBody");
+  const ticketSpeaker = document.getElementById("ticketSpeaker");
+
+  /**
+   * Dibuja el contenido del ticket según "currentScreen". Cada pantalla arma
+   * su propio HTML y lo asigna a ticketBody.innerHTML. Los botones llevan
+   * atributos data-action (y a veces data-id) que el listener de más abajo
+   * usa para saber qué hacer al hacer clic.
+   */
+  function renderScreen(){
+    let html = "";
+
+    if(currentScreen === "saludo"){
+      ticketSpeaker.textContent = "Mariana · Recepcionista";
+      if(cart.length){
+        html = `<p class="dlg-text">¡Hola de nuevo! Tienes <strong>${cartCount()}</strong> producto(s) en tu pedido (${fmt(cartTotal())}). ¿Quieres ver el menú o finalizar tu pedido?</p>
+        <div class="dlg-options">
+          <button class="dlg-btn" data-action="menu">Ver el menú</button>
+          <button class="dlg-btn" data-action="resumen">Finalizar pedido</button>
+          <button class="dlg-btn ghost" data-action="cerrar">Solo estoy mirando</button>
+        </div>`;
+      } else {
+        html = `<p class="dlg-text">¡Hola! Bienvenido a <strong>RapiPizza</strong> 🍕 ¿En qué puedo ayudarte hoy?</p>
+        <div class="dlg-options">
+          <button class="dlg-btn" data-action="menu">Ver el menú</button>
+          <button class="dlg-btn ghost" data-action="cerrar">Solo estoy mirando</button>
+        </div>`;
+      }
+    }
+
+    else if(currentScreen === "menu"){
+      ticketSpeaker.textContent = "Menu RapiPizza";
+      html = `<p class="dlg-text">Estas son nuestras pizzas de hoy:</p>
+      <div class="menu-grid">
+        ${PRODUCTS.map(p => `
+          <div class="menu-card">
+            <div class="top" style="background:${p.color}"></div>
+            <div class="icon">${p.emoji}</div>
+            <div class="name">${p.nombre}</div>
+            <div class="price-tag">${fmt(p.precio)}</div>
+            <button data-action="add" data-id="${p.id}">+ Agregar</button>
+          </div>`).join("")}
+      </div>
+      <div class="dlg-options">
+        ${cart.length ? `<button class="dlg-btn" data-action="resumen">Ver mi pedido (${cartCount()})</button>` : ""}
+        <button class="dlg-btn ghost" data-action="saludo">Volver</button>
+      </div>`;
+    }
+
+    else if(currentScreen === "agregado"){
+      ticketSpeaker.textContent = "Mariana · Recepcionista";
+      const last = cart[cart.length - 1];
+      html = `<p class="dlg-text">¡Anotado! Agregué <strong>${last.emoji} ${last.nombre}</strong> (${fmt(last.precio)}) a tu pedido. ¿Deseas algo más?</p>
+      <div class="dlg-options">
+        <button class="dlg-btn" data-action="menu">Ver más pizzas</button>
+        <button class="dlg-btn" data-action="resumen">Finalizar pedido</button>
+      </div>`;
+    }
+
+    else if(currentScreen === "resumen"){
+      ticketSpeaker.textContent = "Tu pedido";
+      if(!cart.length){
+        html = `<p class="dlg-text">Tu carrito está vacío. ¡Elige algo delicioso del menú!</p>
+        <div class="dlg-options"><button class="dlg-btn" data-action="menu">Ver menú</button></div>`;
+      } else {
+        html = `<ul class="receipt">
+          ${cart.map(i => `<li><span>${i.cantidad}x ${i.emoji} ${i.nombre}</span><span>${fmt(i.precio*i.cantidad)}</span></li>`).join("")}
+        </ul>
+        <div class="receipt-total"><span>Total</span><span>${fmt(cartTotal())}</span></div>
+        <p class="dlg-text" style="margin-top:-6px;font-size:13px;opacity:.7">Tu saldo actual: ${fmt(balance)}</p>
+        <div class="dlg-options">
+          <button class="dlg-btn" data-action="confirmar">Confirmar y pagar</button>
+          <button class="dlg-btn ghost" data-action="menu">Seguir pidiendo</button>
+        </div>`;
+      }
+    }
+
+    // Pantalla que aparece si el saldo no alcanza para pagar el carrito.
+    else if(currentScreen === "sinfondos"){
+      ticketSpeaker.textContent = "Mariana · Recepcionista";
+      const faltante = cartTotal() - balance;
+      html = `<div class="no-funds">
+        <p><strong>¡Ups! No tienes saldo suficiente 🪙</strong></p>
+        <p>Tu pedido cuesta ${fmt(cartTotal())} y tienes ${fmt(balance)}. Te faltan <strong>${fmt(faltante)}</strong>.</p>
+      </div>
+      <div class="dlg-options">
+        <button class="dlg-btn" data-action="recargar">🪙 Recargar S/ 20.00</button>
+        <button class="dlg-btn ghost" data-action="resumen">Volver al pedido</button>
+      </div>`;
+    }
+
+    else if(currentScreen === "final"){
+      ticketSpeaker.textContent = "Mariana · Recepcionista";
+      html = `<p class="dlg-text">¡Pedido <strong>#${orderNumber}</strong> confirmado! 🍕<br>
+        Pagarás <strong>${fmt(lastOrderTotal)}</strong>. Saldo restante: <strong>${fmt(balance)}</strong>.<br><br>
+        Prepararé tu pizza ahora mismo — en unos <strong>20 segundos</strong> te aviso.
+        ¡Puedes pasear por el local mientras esperas!</p>
+      <div class="dlg-options">
+        <button class="dlg-btn" data-action="cerrar">¡Listo, esperaré!</button>
+      </div>`;
+    }
+
+    ticketBody.innerHTML = html;
+  }
+
+  /**
+   * Procesa la acción de un botón del diálogo (atributo data-action) y, si
+   * aplica, el id de producto asociado (data-id). Cambia "currentScreen" y
+   * vuelve a dibujar el ticket al final.
+   */
+  function handleAction(action, id){
+    beep(action === "add" ? 720 : 540, 0.08);
+
+    if(action === "menu") currentScreen = "menu";
+    else if(action === "saludo") currentScreen = "saludo";
+    else if(action === "add"){ addToCart(id); currentScreen = "agregado"; }
+    else if(action === "resumen") currentScreen = "resumen";
+    else if(action === "confirmar"){
+      const total = cartTotal();
+      if(total > balance){
+        // No alcanza el saldo: mandamos al jugador a la pantalla de recarga.
+        currentScreen = "sinfondos";
+      } else {
+        balance -= total;
+        lastOrderTotal = total;
+        updateBalanceHud();
+        orderNumber = Math.floor(1000 + Math.random()*9000);
+        currentScreen = "final";
+        cart = [];
+        // Al cerrar el diálogo "final", startPrepTimer() arranca la simulación.
+        orderPendingSimulation = true;
+      }
+    }
+    else if(action === "recargar"){
+      // Simula una "recarga" de saldo, como comprar moneda dentro de un juego.
+      balance += 20;
+      updateBalanceHud();
+      currentScreen = "resumen";
+    }
+    else if(action === "cerrar"){
+      closeDialogue();
+      // Si el diálogo que se cerró era el de confirmación de pedido, arrancar timer.
+      if(orderPendingSimulation){
+        orderPendingSimulation = false;
+        startPrepTimer();
+      }
+      return;
+    }
+
+    renderScreen();
+  }
+
+  // Delegación de eventos: un solo listener atiende los clics de TODOS los
+  // botones del ticket, incluso los que se crean dinámicamente en cada render.
+  ticketBody.addEventListener("click", e=>{
+    const btn = e.target.closest("[data-action]");
+    if(!btn) return;
+    handleAction(btn.dataset.action, btn.dataset.id);
+  });
+  document.getElementById("ticketClose").addEventListener("click", closeDialogue);
+
+  /* ---------------------------------------------------------------------------
+   * 5. APERTURA / CIERRE DEL DIÁLOGO
+   * ------------------------------------------------------------------------- */
+  const ticket = document.getElementById("ticket");
+  const camEl = document.getElementById("cam");
+  const rigEl = document.getElementById("rig");
+  const sceneEl = document.getElementById("scene");
+  const orderFabEl = document.getElementById("orderFab");
+
+  /** Abre el panel de diálogo: pausa el movimiento/cámara y libera el mouse.
+   *  GUARD: solo se abre cuando simState es "idle" para evitar que aiming a
+   *  zonas de simulación (pizza, mesas, sillas) dispare el diálogo de pedido. */
+  function openDialogue(){
+    if(dialogueOpen) return;
+    // Bloquear la apertura durante cualquier estado de simulación activa.
+    // Sin este guard, apuntar a la caja de pizza con nearReceptionist=true
+    // y hacer clic abría el diálogo de pedido en lugar de comer la pizza.
+    if(simState !== "idle") return;
+    dialogueOpen = true;
+    currentScreen = "saludo";
+    renderScreen();
+    ticket.classList.add("open");
+    hidePrompt();
+    orderFabEl.classList.add("hidden");
+    camEl.setAttribute("look-controls", "enabled", false);
+    rigEl.setAttribute("wasd-controls", "enabled", false);
+    if(document.exitPointerLock) document.exitPointerLock();
+  }
+
+  /** Cierra el panel de diálogo: reanuda el movimiento y vuelve a capturar el mouse. */
+  function closeDialogue(){
+    dialogueOpen = false;
+    ticket.classList.remove("open");
+    orderFabEl.classList.remove("hidden");
+    camEl.setAttribute("look-controls", "enabled", true);
+    rigEl.setAttribute("wasd-controls", "enabled", true);
+
+    // ---------------------------------------------------------------------
+    // BUG CORREGIDO: "después de terminar una compra no me deja moverme"
+    // -----------------------------------------------------------------------
+    // Causa: al hacer clic en un <button> del ticket (p. ej. "Cerrar"), el
+    // navegador le da el foco del teclado a ese botón. Por dentro, A-Frame
+    // decide si debe capturar las teclas WASD con esta comprobación (ver
+    // utils.shouldCaptureKeyEvent en el código fuente de A-Frame):
+    //     return document.activeElement === document.body;
+    // Como el botón "Cerrar" se quedaba con el foco (en vez de <body>), esa
+    // comprobación daba "false" para siempre y wasd-controls/look-controls
+    // dejaban de reaccionar al teclado, aunque "enabled" estuviera en true.
+    // Solución: devolver el foco a <body> (quitándoselo al botón) apenas se
+    // cierra el diálogo.
+    if(document.activeElement && document.activeElement !== document.body && document.activeElement.blur){
+      document.activeElement.blur();
+    }
+
+    requestLockIfNeeded();
+  }
+
+  /** Vuelve a "atrapar" el mouse dentro del lienzo 3D (necesario para mirar con el mouse). */
+  function requestLockIfNeeded(){
+    const canvas = sceneEl.canvas;
+    if(canvas && document.pointerLockElement !== canvas && canvas.requestPointerLock){
+      canvas.requestPointerLock();
+    }
+  }
+
+  /* ---------------------------------------------------------------------------
+   * 6. INTERACCIÓN POR PUNTERÍA — "apuntar a la recepcionista" abre el diálogo
+   * ------------------------------------------------------------------------------
+   * En vez de calcular distancias en cada fotograma, aprovechamos algo que
+   * A-Frame ya hace por nosotros: el componente "raycaster" del cursor
+   * (<a-cursor>, definido en la cámara) dispara automáticamente los eventos
+   * "mouseenter" y "mouseleave" sobre cualquier entidad con class="clickable"
+   * en el instante en que el rayo de la mira la toca o deja de tocarla. Solo
+   * hace falta escuchar esos eventos -> es más simple, más robusto (no hay
+   * matemática de distancias que pueda fallar) y cumple exactamente lo que
+   * se pidió: "que el diálogo sea al apuntar al recepcionista".
+   * ------------------------------------------------------------------------- */
+  const promptEl = document.getElementById("prompt");
+  const crosshairEl = document.getElementById("crosshair");
+  function showPrompt(){ promptEl.classList.add("show"); crosshairEl.classList.add("active"); }
+  function hidePrompt(){ promptEl.classList.remove("show"); crosshairEl.classList.remove("active"); }
+
+  const receptionistEl = document.getElementById("receptionist");
+  const counterEl = document.getElementById("counter");
+  const hitboxEl = document.getElementById("interactionZone");
+  const objetivosInteractuables = [receptionistEl, counterEl, hitboxEl];
+
+  let aimHoverCount = 0;
+
+  /** Mira entra en zona de la RECEPCIONISTA → mostrar aviso "Pulsa E" y activar crosshair.
+   *  Solo activa el aviso si no estamos en medio de una simulación, para evitar
+   *  que apuntar a la pizza mientras se lleva la caja muestre el prompt de pedido. */
+  function onAimEnter(){
+    aimHoverCount++;
+    nearReceptionist = true;
+    // Solo mostrar el prompt de la recepcionista cuando no hay simulación activa.
+    // De lo contrario, el usuario podría confundirse y pensar que puede hacer
+    // un nuevo pedido mientras lleva la caja o está comiendo.
+    if(simState === "idle") showPrompt();
+  }
+
+  /** Mira sale de zona de la RECEPCIONISTA. */
+  function onAimLeave(){
+    aimHoverCount = Math.max(0, aimHoverCount - 1);
+    if(aimHoverCount === 0){
+      nearReceptionist = false;
+      hidePrompt();
+    }
+  }
+
+  // ── onSimAimEnter / onSimAimLeave ────────────────────────────────────────
+  // Handlers EXCLUSIVOS para las zonas de SIMULACIÓN (delivery, mesas, sillas,
+  // pizza en mesa). A diferencia de onAimEnter, estos:
+  //   • SOLO activan el highlight del crosshair (se pone rojo)
+  //   • NUNCA activan el aviso "Pulsa E" ni modifican nearReceptionist
+  // Esto evita el bug: "apunto a la pizza, el crosshair activa nearReceptionist,
+  // hago clic y se abre el diálogo de pedido en vez de comer".
+  let simAimCount = 0;
+
+  function onSimAimEnter(){
+    simAimCount++;
+    crosshairEl.classList.add("active"); // crosshair rojo = zona interactuable
+  }
+
+  function onSimAimLeave(){
+    simAimCount = Math.max(0, simAimCount - 1);
+    // Solo quitar el highlight si tampoco hay un objetivo de recepcionista activo
+    if(simAimCount === 0 && aimHoverCount === 0){
+      crosshairEl.classList.remove("active");
+    }
+  }
+
+  objetivosInteractuables.forEach(el=>{
+    el.addEventListener("mouseenter", onAimEnter);
+    el.addEventListener("mouseleave", onAimLeave);
+  });
+
+  /* ---------------------------------------------------------------------------
+   * 7. ENTRADAS DEL JUGADOR (teclado, clic) Y ARRANQUE
+   * ------------------------------------------------------------------------- */
+  window.addEventListener("keydown", e=>{
+    if((e.key === "e" || e.key === "E") && nearReceptionist && !dialogueOpen) openDialogue();
+    if(e.key === "Escape" && dialogueOpen) closeDialogue();
+  });
+
+  // Clic mientras se apunta a la recepcionista, el mostrador o la zona
+  // invisible abre el diálogo. El propio cursor de A-Frame solo deja pasar
+  // este evento cuando el rayo de la mira realmente está tocando al objeto.
+  objetivosInteractuables.forEach(el=>{
+    el.addEventListener("click", ()=>{ if(!dialogueOpen) openDialogue(); });
+  });
+
+  // Botón fijo "🍕 Pedir pizza": SIEMPRE disponible, sin importar hacia dónde
+  // esté mirando el jugador. Esta es la forma garantizada de poder pedir.
+  orderFabEl.addEventListener("click", ()=>{ if(!dialogueOpen) openDialogue(); });
+
+  /* ---------------------------------------------------------------------------
+   * SECCIÓN 8 — SIMULACIÓN DE PEDIDO: timer → recogida → mesa → silla → comer
+   * ---------------------------------------------------------------------------
+   * Esta es la parte "tipo Roblox" de la experiencia: después de confirmar el
+   * pedido, el jugador ve una cuenta regresiva, la pizza aparece en el
+   * mostrador, la recoge, la lleva a una mesa, se sienta y la come.
+   *
+   * MÁQUINA DE ESTADOS (simState):
+   *   "idle"      → sin pedido activo (estado inicial)
+   *   "preparing" → Mariana prepara la pizza; timer de 20 s visible en pantalla
+   *   "ready"     → pizza lista; caja en mostrador, glow dorado, es clickeable
+   *   "carrying"  → jugador lleva la caja; mesas se vuelven destinos clickeables
+   *   "placed"    → caja en una mesa; sillas de esa mesa se activan
+   *   "sitting"   → jugador "sentado" (rig.Y=1.3); caja en mesa es clickeable
+   *   "eating"    → barra de progreso; al final → "idle" y levantarse
+   *
+   * FUNCIÓN DE CADA FUNCIÓN:
+   *   showToast(title, sub)       → muestra el toast grande 3 seg y lo oculta
+   *   startPrepTimer()            → arranca el countdown de 20 s
+   *   pizzaReady()                → termina el timer, muestra la caja
+   *   pickupPizza()               → recoge la caja, activa mesas
+   *   placePizza(tableZoneEl)     → deja la caja en una mesa, activa sillas
+   *   sitDown(sitZoneEl)          → teleporta el rig a la silla, baja Y
+   *   startEating()               → inicia barra de progreso (3 s)
+   *   finishEating()              → limpia todo, vuelve a "idle"
+   *   standUp()                   → sube el rig de vuelta a Y=1.6
+   * ------------------------------------------------------------------------- */
+
+  // Referencias a los elementos del HUD de simulación
+  const toastEl     = document.getElementById("pizzaToast");
+  const toastTitle  = document.getElementById("toastTitle");
+  const toastSub    = document.getElementById("toastSub");
+  const prepBadgeEl = document.getElementById("prepBadge");
+  const prepCountEl = document.getElementById("prepCount");
+  const carryHudEl  = document.getElementById("carryHud");
+  const eatOverlay  = document.getElementById("eatOverlay");
+  const eatBarFill  = document.getElementById("eatBarFill");
+  const eatMsg      = document.getElementById("eatMsg");
+  const standBtnEl  = document.getElementById("standBtn");
+
+  const deliveryBoxEl    = document.getElementById("deliveryPizzaBox");
+  const deliveryZoneEl   = document.getElementById("deliveryPickupZone");
+  const tablePizzaBoxEl  = document.getElementById("tablePizzaBox");
+  const eatZoneEl        = document.getElementById("eatZone");
+
+  let toastTimeout = null;
+
+  /**
+   * Muestra el toast grande durante 3.5 segundos y luego lo oculta.
+   * Se cancela cualquier toast anterior antes de mostrar uno nuevo.
+   */
+  function showToast(title, sub){
+    clearTimeout(toastTimeout);
+    toastTitle.textContent = title;
+    toastSub.textContent = sub;
+    toastEl.classList.add("show");
+    toastTimeout = setTimeout(()=> toastEl.classList.remove("show"), 3500);
+  }
+
+  /**
+   * Arranca el countdown de preparación (20 segundos).
+   * Muestra el badge con el número de segundos restantes y lo actualiza
+   * cada segundo. Al llegar a 0, llama a pizzaReady().
+   */
+  function startPrepTimer(){
+    simState = "preparing";
+    let secs = 20;
+    prepCountEl.textContent = secs + "s";
+    prepBadgeEl.classList.add("show");
+    showToast("¡Pedido recibido! 👩‍🍳", "Mariana ya está preparando tu pizza...");
+
+    prepInterval = setInterval(()=>{
+      secs--;
+      prepCountEl.textContent = secs + "s";
+      if(secs <= 0){
+        clearInterval(prepInterval);
+        prepInterval = null;
+        pizzaReady();
+      }
+    }, 1000);
+  }
+
+  /**
+   * Llamada cuando el timer llega a 0.
+   * Oculta el countdown, muestra la caja en el mostrador con glow dorado
+   * y muestra el toast "¡Tu pizza está lista!".
+   */
+  function pizzaReady(){
+    simState = "ready";
+    prepBadgeEl.classList.remove("show");
+
+    // Mostrar la caja de entrega en el mostrador
+    deliveryBoxEl.setAttribute("visible", true);
+    // Activar la zona de recogida para que el cursor la detecte
+    deliveryZoneEl.classList.add("clickable");
+    // Usar onSimAimEnter/Leave (no onAimEnter): solo resalta el crosshair,
+    // no muestra "Pulsa E" ni activa nearReceptionist
+    deliveryZoneEl.addEventListener("mouseenter", onSimAimEnter);
+    deliveryZoneEl.addEventListener("mouseleave", onSimAimLeave);
+
+    showToast("¡Tu pizza está lista! 🍕", "Ve al mostrador y recógela");
+    // Repetir el toast después de 5 segundos por si el jugador no lo vio
+    setTimeout(()=>{
+      if(simState === "ready") showToast("🍕 ¡Te esperamos en el mostrador!", "Haz clic en la caja para recogerla");
+    }, 6000);
+  }
+
+  /**
+   * El jugador recogió la pizza del mostrador.
+   * Oculta la caja del mostrador, muestra el indicador "llevas la caja"
+   * y activa las zonas de las tres mesas como destinos clickeables.
+   */
+  function pickupPizza(){
+    simState = "carrying";
+    deliveryBoxEl.setAttribute("visible", false);
+    deliveryZoneEl.classList.remove("clickable");
+    deliveryZoneEl.removeEventListener("mouseenter", onSimAimEnter);
+    deliveryZoneEl.removeEventListener("mouseleave", onSimAimLeave);
+
+    // Mostrar indicador de que el jugador lleva la caja
+    carryHudEl.classList.add("show");
+
+    // Activar todas las zonas de mesa
+    document.querySelectorAll(".table-zone").forEach(el=>{
+      el.classList.add("clickable");
+      el.addEventListener("mouseenter", onSimAimEnter);
+      el.addEventListener("mouseleave", onSimAimLeave);
+    });
+
+    showToast("📦 ¡Recogiste tu pizza!", "Llévala a una mesa — apunta y haz clic");
+  }
+
+  /**
+   * El jugador eligió una mesa donde dejar la pizza.
+   * Reposiciona y muestra el tablePizzaBox sobre esa mesa.
+   * Activa solo las sillas de esa mesa como destinos clickeables.
+   *
+   * @param {HTMLElement} tableZoneEl — el elemento .table-zone que se clickeó
+   */
+  function placePizza(tableZoneEl){
+    simState = "placed";
+    carryHudEl.classList.remove("show");
+
+    // Desactivar todas las zonas de mesa
+    document.querySelectorAll(".table-zone").forEach(el=>{
+      el.classList.remove("clickable");
+      el.removeEventListener("mouseenter", onSimAimEnter);
+      el.removeEventListener("mouseleave", onSimAimLeave);
+    });
+
+    // Posicionar la caja en la mesa elegida.
+    // data-wx / data-wz son las coordenadas de mundo real de la mesa.
+    // Y = 1.78: tope de mesa (1.56) + altura de la caja (0.22)
+    const wx = parseFloat(tableZoneEl.dataset.wx);
+    const wz = parseFloat(tableZoneEl.dataset.wz);
+    selectedTableId = tableZoneEl.dataset.table;
+    tablePizzaBoxEl.setAttribute("position", `${wx} 1.78 ${wz}`);
+    tablePizzaBoxEl.setAttribute("visible", true);
+
+    // Activar solo las sillas de la mesa elegida
+    document.querySelectorAll(`.sit-zone[data-table="${selectedTableId}"]`).forEach(el=>{
+      el.classList.add("clickable");
+      el.addEventListener("mouseenter", onSimAimEnter);
+      el.addEventListener("mouseleave", onSimAimLeave);
+    });
+
+    showToast("🪑 ¡Pizza en la mesa!", "Ahora siéntate en una silla — apunta y haz clic");
+  }
+
+  /**
+   * El jugador eligió una silla para sentarse.
+   * Teleporta el rig a la posición de la silla y baja el Y a 1.3 (sentado).
+   * Desactiva el movimiento y activa la caja de pizza como clickeable.
+   *
+   * @param {HTMLElement} sitZoneEl — el elemento .sit-zone que se clickeó
+   */
+  function sitDown(sitZoneEl){
+    simState = "sitting";
+
+    // Desactivar todas las zonas de silla
+    document.querySelectorAll(".sit-zone").forEach(el=>{
+      el.classList.remove("clickable");
+      el.removeEventListener("mouseenter", onSimAimEnter);
+      el.removeEventListener("mouseleave", onSimAimLeave);
+    });
+
+    // ── BUG CORREGIDO: "se pone todo negro al sentarme" ──────────────────
+    // El bug ocurría porque el teleport XZ (a las coords exactas de la silla)
+    // colocaba la cámara dentro o muy cerca de la geometría de la silla (pata,
+    // asiento, respaldo), lo que hace que WebGL renderice el interior negro del
+    // mesh. También existía el riesgo de que la nueva posición quedara fuera de
+    // la zona iluminada del local, mostrando solo el color de la niebla (#120c09,
+    // casi negro).
+    //
+    // SOLUCIÓN: NO teleportamos XZ. El jugador debe haber estado cerca de la
+    // silla para poder hacer clic en ella (las zonas son pequeñas), así que ya
+    // está en una posición correcta. Solo bajamos la Y de "de pie" (1.6 m) a
+    // "sentado" (1.3 m) para dar la sensación visual de estar en una silla.
+    // Esto es seguro porque el suelo está en Y=0 y la cámara en Y=1.3 siempre
+    // queda sobre él, sin entrar en ninguna geometría.
+    const pos = rigEl.getAttribute("position");
+    rigEl.setAttribute("position", `${pos.x} 1.3 ${pos.z}`);
+
+    // Deshabilitar el movimiento mientras el jugador está sentado.
+    // Se usa la sintaxis de dos argumentos (string) que es más fiable en A-Frame:
+    rigEl.setAttribute("wasd-controls", "enabled: false");
+
+    // Activar la zona de comer sobre la caja con los handlers de simulación
+    eatZoneEl.classList.add("clickable");
+    eatZoneEl.addEventListener("mouseenter", onSimAimEnter);
+    eatZoneEl.addEventListener("mouseleave", onSimAimLeave);
+
+    // Mostrar el botón de levantarse
+    standBtnEl.classList.add("show");
+
+    showToast("🍕 ¡Sentado! Apunta a la pizza y haz clic para comer", "");
+  }
+
+  /**
+   * El jugador hace clic en la pizza mientras está sentado.
+   * Muestra la barra de progreso "comiendo" durante 3 segundos y luego
+   * llama a finishEating().
+   */
+  function startEating(){
+    simState = "eating";
+    eatZoneEl.classList.remove("clickable");
+    eatZoneEl.removeEventListener("mouseenter", onSimAimEnter);
+    eatZoneEl.removeEventListener("mouseleave", onSimAimLeave);
+
+    eatMsg.textContent = "😋 Comiendo pizza...";
+    eatBarFill.style.width = "0%";
+    eatOverlay.classList.add("show");
+
+    // Animar la barra de progreso durante 3 segundos
+    const DURACION_MS = 3000;
+    const INTERVAL_MS = 80;
+    const steps = DURACION_MS / INTERVAL_MS;
+    let step = 0;
+
+    const eatInterval = setInterval(()=>{
+      step++;
+      eatBarFill.style.width = Math.min((step / steps) * 100, 100) + "%";
+      if(step >= steps){
+        clearInterval(eatInterval);
+        finishEating();
+      }
+    }, INTERVAL_MS);
+  }
+
+  /**
+   * La animación de comer terminó. Limpia todos los elementos de simulación
+   * y vuelve al estado "idle".
+   */
+  function finishEating(){
+    simState = "idle";
+    selectedTableId = null;
+
+    eatMsg.textContent = "¡Buen provecho! 🎉";
+    eatBarFill.style.width = "100%";
+
+    // Esperar un momento para que el mensaje se lea antes de ocultar
+    setTimeout(()=>{
+      eatOverlay.classList.remove("show");
+      eatBarFill.style.width = "0%";
+      tablePizzaBoxEl.setAttribute("visible", false);
+      standUp();
+      showToast("🎉 ¡Gracias por comer en RapiPizza!", "¡Vuelve cuando quieras!");
+    }, 1800);
+  }
+
+  /**
+   * Levanta al jugador de la silla (devuelve rig.Y a 1.6) y reactiva el
+   * movimiento. Se llama automáticamente al terminar de comer, o manualmente
+   * si el jugador pulsa el botón "Levantarse".
+   */
+  function standUp(){
+    // Volver a la altura normal de pie (1.6 m) sin cambiar XZ
+    const pos = rigEl.getAttribute("position");
+    rigEl.setAttribute("position", `${pos.x} 1.6 ${pos.z}`);
+    // Sintaxis de dos argumentos (string): más fiable en A-Frame 1.5.x
+    rigEl.setAttribute("wasd-controls", "enabled: true");
+    standBtnEl.classList.remove("show");
+    // Limpiar el highlight del crosshair si quedó activo
+    if(simAimCount === 0 && aimHoverCount === 0) crosshairEl.classList.remove("active");
+  }
+
+  // ----- Event listeners para las zonas interactuables de simulación -----
+
+  // Pickup: cuando el jugador hace clic en la zona de recogida del mostrador
+  deliveryZoneEl.addEventListener("click", ()=>{
+    if(simState === "ready") pickupPizza();
+  });
+
+  // Mesas: cuando el jugador hace clic en la zona superior de una mesa
+  document.querySelectorAll(".table-zone").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      if(simState === "carrying") placePizza(el);
+    });
+  });
+
+  // Sillas: cuando el jugador hace clic en la zona de una silla
+  document.querySelectorAll(".sit-zone").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      if(simState === "placed") sitDown(el);
+    });
+  });
+
+  // Pizza en mesa: cuando el jugador hace clic en la caja sobre la mesa
+  eatZoneEl.addEventListener("click", ()=>{
+    if(simState === "sitting") startEating();
+  });
+
+  // Botón "Levantarse": permite al jugador ponerse de pie en cualquier momento
+  standBtnEl.addEventListener("click", ()=>{
+    if(simState === "sitting" || simState === "eating"){
+      eatZoneEl.classList.remove("clickable");
+      eatZoneEl.removeEventListener("mouseenter", onSimAimEnter);
+      eatZoneEl.removeEventListener("mouseleave", onSimAimLeave);
+      eatOverlay.classList.remove("show");
+      tablePizzaBoxEl.setAttribute("visible", false);
+      simState = "idle";
+      selectedTableId = null;
+      standUp();
+    }
+    standBtnEl.blur(); // devolver el foco a body para que WASD funcione
+  });
+
+  // Pantalla de inicio: al pulsar "Entrar al local" se oculta la portada y
+  // se atrapa el mouse. Ya no hace falta arrancar ningún bucle por
+  // fotograma: la detección de "apuntar" funciona por eventos del cursor.
+  const startEl = document.getElementById("start");
+  document.getElementById("enterBtn").addEventListener("click", ()=>{
+    startEl.style.display = "none";
+    document.getElementById("hint").classList.remove("fade");
+    requestLockIfNeeded();
+    setTimeout(()=> document.getElementById("hint").classList.add("fade"), 7000);
+  });
+
+  // Si el jugador pierde el "pointer lock" sin querer (por ejemplo al pulsar
+  // Esc del navegador) y no hay diálogo abierto, un clic en la escena lo
+  // vuelve a capturar para poder seguir mirando con el mouse.
+  sceneEl.addEventListener("click", ()=>{
+    if(!dialogueOpen) requestLockIfNeeded();
+  });
+
+})();
+</script>
+</body>
+</html>
