@@ -305,9 +305,17 @@ function DeliveryPanel({ orders, loading, onStatusChange, onRefresh }: {
   onStatusChange: (id: string, status: OrderStatus) => void;
   onRefresh: () => void;
 }) {
-  const activeOrders = orders.filter(
-    o => o.delivery_type === 'delivery' && (o.status === 'preparing' || o.status === 'sent'),
+  // Todos los pedidos de delivery activos (cualquier estado antes de entregado)
+  const allDelivery = orders.filter(
+    o => o.delivery_type === 'delivery' && !['delivered', 'cancelled'].includes(o.status),
   );
+  // Activos en ruta (preparando o enviados)
+  const activeOrders = allDelivery.filter(
+    o => o.status === 'preparing' || o.status === 'sent',
+  );
+  // Nuevos pendientes (aún no procesados por admin)
+  const pendingOrders = allDelivery.filter(o => o.status === 'pending');
+
   const completedToday = orders.filter(o => {
     const isToday = new Date(o.created_at).toDateString() === new Date().toDateString();
     return o.delivery_type === 'delivery' && o.status === 'delivered' && isToday;
@@ -315,12 +323,12 @@ function DeliveryPanel({ orders, loading, onStatusChange, onRefresh }: {
 
   return (
     <div className="space-y-6">
-      {/* Stats delivery */}
+      {/* Stats */}
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
           <Truck className="w-5 h-5 text-primary mb-2" />
           <p className="text-2xl font-bold text-primary">{activeOrders.length}</p>
-          <p className="text-xs text-muted-foreground">Entregas pendientes</p>
+          <p className="text-xs text-muted-foreground">En preparación / En ruta</p>
         </div>
         <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
           <CheckCircle className="w-5 h-5 text-green-600 mb-2" />
@@ -341,17 +349,41 @@ function DeliveryPanel({ orders, loading, onStatusChange, onRefresh }: {
         <div className="flex items-center justify-center py-16">
           <span className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
-      ) : activeOrders.length === 0 ? (
-        <div className="bg-card rounded-xl p-12 text-center border border-border">
-          <Truck className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-          <p className="text-lg font-semibold">No hay entregas pendientes</p>
-          <p className="text-sm text-muted-foreground mt-1">Los pedidos listos para entregar aparecerán aquí</p>
-        </div>
       ) : (
-        <div className="space-y-3">
-          {activeOrders.map(order => (
-            <DeliveryCard key={order.id} order={order} onStatusChange={onStatusChange} />
-          ))}
+        <div className="space-y-6">
+          {/* Pedidos nuevos (pending) */}
+          {pendingOrders.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-xs font-bold text-yellow-700 uppercase tracking-wide flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+                Nuevos pedidos ({pendingOrders.length})
+              </p>
+              {pendingOrders.map(order => (
+                <DeliveryCard key={order.id} order={order} onStatusChange={onStatusChange} />
+              ))}
+            </div>
+          )}
+
+          {/* Pedidos activos en ruta */}
+          {activeOrders.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-xs font-bold text-primary uppercase tracking-wide">
+                En preparación / En ruta ({activeOrders.length})
+              </p>
+              {activeOrders.map(order => (
+                <DeliveryCard key={order.id} order={order} onStatusChange={onStatusChange} />
+              ))}
+            </div>
+          )}
+
+          {/* Estado vacío */}
+          {allDelivery.length === 0 && (
+            <div className="bg-card rounded-xl p-12 text-center border border-border">
+              <Truck className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+              <p className="text-lg font-semibold">No hay pedidos activos</p>
+              <p className="text-sm text-muted-foreground mt-1">Los pedidos nuevos aparecerán aquí</p>
+            </div>
+          )}
         </div>
       )}
     </div>
