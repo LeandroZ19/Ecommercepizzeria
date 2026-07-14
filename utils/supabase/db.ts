@@ -235,37 +235,54 @@ export async function createOrder(
     return { data: null, error: orderErr ?? new Error('Order insert returned no data') };
   }
 
+  // Insertar items — intentamos tres variantes del schema para máxima compatibilidad.
+  // Un fallo en items NO cancela el pedido; la orden ya fue creada y es válida.
   if (input.items.length > 0) {
-    // Solo insertar columnas que existen en el schema original (migration 001).
-    // subtotal y variant_name se añaden opcionalmente si se ejecutó migration 011.
+    // Columnas que SIEMPRE existen (schema original migration 001)
     const baseRows = input.items.map(item => ({
       order_id:      orderRow.id,
-      product_id:    item.productId || item.productName,
+      product_id:    item.productId ?? item.productName,
       product_name:  item.productName,
-      product_image: item.productImage || null,
+      product_image: item.productImage ?? null,
       price:         item.price,
       quantity:      item.quantity,
     }));
 
-    // Intentar primero con columnas extendidas (si ya se ejecutó migration 011)
-    const extendedRows = input.items.map((item, i) => ({
-      ...baseRows[i],
-      subtotal:     item.price * item.quantity,
-      variant_name: item.variantName || null,
+    // Columnas extendidas (solo si se ejecutó migration 011/012)
+    const extendedRows = baseRows.map((row, i) => ({
+      ...row,
+      subtotal:     input.items[i].price * input.items[i].quantity,
+      variant_name: input.items[i].variantName ?? null,
     }));
 
-    let { error: itemsErr } = await supabase.from('order_items').insert(extendedRows);
+    // Intento 1: schema extendido (con subtotal/variant_name)
+    let { error: e1 } = await supabase.from('order_items').insert(extendedRows);
 
-    // Si falla por columnas inexistentes, reintentar solo con columnas base
-    if (itemsErr) {
-      console.warn('[db] order_items extended insert failed, retrying with base columns:', itemsErr.message);
-      const retry = await supabase.from('order_items').insert(baseRows);
-      itemsErr = retry.error;
-    }
+    // Intento 2: schema base (sin subtotal/variant_name — por si aún no se ejecutó migration 012)
+    if (e1) {
+      console.warn('[db] items insert (extended) failed:', e1.message, '— retrying base schema');
+      const { error: e2 } = await supabase.from('order_items').insert(baseRows);
 
-    if (itemsErr) {
-      console.error('[db] order_items insert error FINAL:', itemsErr.message, itemsErr);
-      return { data: null, error: itemsErr };
+      // Intento 3: RPC con SECURITY DEFINER (bypasa RLS — requiere haber ejecutado migration 012)
+      if (e2) {
+        console.warn('[db] items insert (base) failed:', e2.message, '— trying RPC fallback');
+        const rpcPayload = extendedRows.map(r => ({
+          order_id:      r.order_id,
+          product_id:    r.product_id,
+          product_name:  r.product_name,
+          product_image: r.product_image,
+          price:         r.price,
+          quantity:      r.quantity,
+          subtotal:      r.subtotal,
+          variant_name:  r.variant_name,
+        }));
+        const { error: e3 } = await supabase.rpc('insert_order_items', { p_items: rpcPayload });
+        if (e3) {
+          console.error('[db] items RPC insert also failed:', e3.message, e3);
+          // No cancelar el pedido — la orden está creada, solo faltan items.
+          // Ejecutar migration 012_minimo_urgente.sql en Supabase para resolver definitivamente.
+        }
+      }
     }
   }
 

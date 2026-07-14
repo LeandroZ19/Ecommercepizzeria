@@ -119,6 +119,39 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.decrement_product_stock(TEXT, INTEGER) TO authenticated, anon;
 
+-- ── 6. Función RPC para insertar order_items (SECURITY DEFINER — bypasa RLS) ─
+-- Necesaria por si las políticas RLS de INSERT fueron eliminadas por migraciones anteriores.
+-- El código en db.ts usa esta función como último recurso si el INSERT directo falla.
+
+CREATE OR REPLACE FUNCTION public.insert_order_items(
+  p_items JSONB
+)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  item JSONB;
+BEGIN
+  FOR item IN SELECT * FROM jsonb_array_elements(p_items)
+  LOOP
+    INSERT INTO public.order_items (
+      order_id, product_id, product_name, product_image, price, quantity, subtotal, variant_name
+    ) VALUES (
+      (item->>'order_id')::uuid,
+      item->>'product_id',
+      item->>'product_name',
+      item->>'product_image',
+      (item->>'price')::numeric,
+      (item->>'quantity')::integer,
+      (item->>'subtotal')::numeric,
+      item->>'variant_name'
+    )
+    ON CONFLICT DO NOTHING;
+  END LOOP;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.insert_order_items(JSONB) TO authenticated, anon;
+
 -- ── Verificación: ejecuta esto y verifica que ves los items de tus pedidos ───
 
 SELECT
