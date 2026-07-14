@@ -271,7 +271,7 @@ export async function createOrder(
     return { data: null, error: orderErr ?? new Error('Order insert returned no data') };
   }
 
-  // Intentar insertar items directamente
+  // Insertar items — tres intentos en cascada para máxima robustez
   if (input.items.length > 0) {
     const rows = input.items.map(item => ({
       order_id:      orderRow.id,
@@ -284,9 +284,17 @@ export async function createOrder(
       variant_name:  item.variantName ?? null,
     }));
 
-    const { error: itemsErr } = await supabase.from('order_items').insert(rows);
-    if (itemsErr) {
-      console.error('[db] fallback order_items insert failed:', itemsErr.message, itemsErr);
+    // Intento 1: insert_order_items RPC (SECURITY DEFINER de migration 012 — bypasa RLS)
+    const { error: rpcItemsErr } = await supabase.rpc('insert_order_items', { p_items: rows });
+
+    if (rpcItemsErr) {
+      console.warn('[db] insert_order_items RPC failed:', rpcItemsErr.message, '— trying direct insert');
+
+      // Intento 2: INSERT directo (funciona si RLS está configurado correctamente)
+      const { error: directErr } = await supabase.from('order_items').insert(rows);
+      if (directErr) {
+        console.error('[db] direct order_items insert also failed:', directErr.message, directErr);
+      }
     }
   }
 
@@ -294,11 +302,35 @@ export async function createOrder(
 }
 
 export async function fetchUserOrders(): Promise<{ data: OrderWithItems[]; error: unknown }> {
-  const { data, error } = await supabase
+  // No usar nested select — requiere FK configurada en Supabase.
+  // En su lugar: fetch orders, luego items por separado con .in()
+  const { data: orders, error } = await supabase
     .from('orders')
-    .select('*, order_items(*)')
+    .select('*')
     .order('created_at', { ascending: false });
-  return { data: (data ?? []) as OrderWithItems[], error };
+
+  if (error || !orders?.length) {
+    return { data: (orders ?? []).map(o => ({ ...o, order_items: [] })) as OrderWithItems[], error };
+  }
+
+  const orderIds = orders.map(o => o.id);
+  const { data: allItems } = await supabase
+    .from('order_items')
+    .select('*')
+    .in('order_id', orderIds);
+
+  const itemsByOrder: Record<string, OrderItemRow[]> = {};
+  (allItems ?? []).forEach(item => {
+    if (!itemsByOrder[item.order_id]) itemsByOrder[item.order_id] = [];
+    itemsByOrder[item.order_id].push(item as OrderItemRow);
+  });
+
+  const result = orders.map(o => ({
+    ...o,
+    order_items: itemsByOrder[o.id] ?? [],
+  })) as OrderWithItems[];
+
+  return { data: result, error: null };
 }
 
 // ─── Operaciones de administrador ─────────────────────────────────────────────

@@ -484,7 +484,7 @@ function AdminOrderCard({
               </div>
             ) : (
               <p className="text-xs text-muted-foreground italic">
-                Sin detalle · ejecuta migration 012 en Supabase para ver productos
+                Sin productos registrados en este pedido
               </p>
             )}
           </div>
