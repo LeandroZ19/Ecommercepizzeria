@@ -6,6 +6,28 @@
 <title>RapiPizza AR</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+<script>
+// ── Interceptar getUserMedia ANTES de que AR.js lo llame ────────────────────
+// Forzamos dimensiones portrait (alto > ancho) para que la cámara llene el viewport.
+(function(){
+  var _orig = navigator.mediaDevices && navigator.mediaDevices.getUserMedia
+              ? navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices)
+              : null;
+  if (!_orig) return;
+  navigator.mediaDevices.getUserMedia = function(constraints) {
+    var vw = window.innerWidth  || screen.width;
+    var vh = window.innerHeight || screen.height;
+    // Si el dispositivo está en portrait (alto > ancho), pedimos exactamente eso
+    var videoC = (typeof constraints.video === 'object') ? constraints.video : {};
+    constraints.video = Object.assign({}, videoC, {
+      facingMode:  { ideal: 'environment' },
+      width:       { ideal: vw  > vh ? vw : vh },
+      height:      { ideal: vw  > vh ? vh : vw }
+    });
+    return _orig(constraints);
+  };
+})();
+</script>
 <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
 <style>
@@ -13,38 +35,56 @@
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Poppins',sans-serif;}
 
-/* ── Camera feed fills entire viewport ───────────────────────────────────── */
-video{position:fixed!important;top:0!important;left:0!important;
+/* ── Forzar llenado de pantalla (fallback CSS, el JS es el fix principal) ── */
+video{
+  position:fixed!important;top:0!important;left:0!important;
   width:100vw!important;height:100vh!important;
   min-width:100vw!important;min-height:100vh!important;
-  object-fit:cover!important;z-index:0!important;}
-a-scene{position:fixed!important;top:0!important;left:0!important;
-  width:100vw!important;height:100vh!important;z-index:1!important;background:transparent!important;}
-a-scene canvas{position:fixed!important;top:0!important;left:0!important;
-  width:100vw!important;height:100vh!important;display:block!important;}
+  max-width:none!important;max-height:none!important;
+  object-fit:cover!important;object-position:center!important;
+  z-index:0!important;
+  transform:none!important;margin:0!important;padding:0!important;
+}
+a-scene{
+  position:fixed!important;top:0!important;left:0!important;
+  width:100vw!important;height:100vh!important;
+  z-index:1!important;background:transparent!important;
+}
+a-scene canvas{
+  position:fixed!important;top:0!important;left:0!important;
+  width:100vw!important;height:100vh!important;display:block!important;
+}
 
-/* ── HUD overlay ─────────────────────────────────────────────────────────── */
+/* ── HUD ─────────────────────────────────────────────────────────── */
 #hud{position:fixed;inset:0;z-index:100;pointer-events:none;
   display:flex;flex-direction:column;align-items:stretch;}
 #topBar{display:flex;align-items:center;justify-content:space-between;
-  padding:14px 16px;background:linear-gradient(to bottom,rgba(27,20,16,.9),transparent);
+  padding:14px 16px;
+  background:linear-gradient(to bottom,rgba(27,20,16,.9) 0%,transparent 100%);
   pointer-events:auto;}
 #brand{font-family:'Fredoka',sans-serif;font-weight:600;color:var(--cream);font-size:20px;line-height:1;}
 #brand b{color:var(--ember);}
-#backBtn{background:rgba(27,20,16,.75);color:var(--cream);border:1px solid rgba(255,90,54,.45);
-  border-radius:999px;font-family:'Poppins',sans-serif;font-size:13px;padding:8px 18px;cursor:pointer;
+#backBtn{background:rgba(27,20,16,.8);color:var(--cream);
+  border:1px solid rgba(255,90,54,.5);border-radius:999px;
+  font-family:'Poppins',sans-serif;font-size:13px;padding:8px 18px;cursor:pointer;
   backdrop-filter:blur(6px);}
-#pdName{text-align:center;font-family:'Fredoka',sans-serif;font-weight:600;color:var(--cream);
-  font-size:20px;padding:6px 16px;text-shadow:0 2px 14px rgba(0,0,0,.75);pointer-events:none;margin-top:6px;}
+#pdName{text-align:center;font-family:'Fredoka',sans-serif;font-weight:600;
+  color:var(--cream);font-size:20px;padding:6px 16px;
+  text-shadow:0 2px 14px rgba(0,0,0,.8);pointer-events:none;margin-top:4px;}
 #spacer{flex:1;}
-#instructions{margin:0 10px 20px;align-self:center;width:calc(100% - 20px);max-width:380px;
-  background:rgba(22,16,12,.93);border:1px solid rgba(255,90,54,.35);border-radius:18px;
-  padding:14px 16px 16px;backdrop-filter:blur(12px);pointer-events:none;}
-#instructions h2{font-family:'Fredoka',sans-serif;font-size:17px;color:var(--ember);margin-bottom:4px;text-align:center;}
-#instructions p{font-size:12px;color:rgba(247,239,227,.75);line-height:1.5;text-align:center;margin-bottom:10px;}
+#instructions{margin:0 10px 20px;align-self:center;
+  width:calc(100% - 20px);max-width:380px;
+  background:rgba(22,16,12,.93);border:1px solid rgba(255,90,54,.35);
+  border-radius:18px;padding:14px 16px 16px;
+  backdrop-filter:blur(12px);pointer-events:none;}
+#instructions h2{font-family:'Fredoka',sans-serif;font-size:17px;
+  color:var(--ember);margin-bottom:4px;text-align:center;}
+#instructions p{font-size:12px;color:rgba(247,239,227,.75);
+  line-height:1.5;text-align:center;margin-bottom:10px;}
 .hiro-row{display:flex;justify-content:center;margin-bottom:10px;}
-.hiro-frame{width:90px;height:90px;border-radius:10px;overflow:hidden;border:2px solid rgba(255,90,54,.5);background:#fff;}
-.hiro-frame img{width:100%;height:100%;display:block;object-fit:contain;}
+.hiro-frame{width:96px;height:96px;border-radius:10px;overflow:hidden;
+  border:2px solid rgba(255,90,54,.6);background:#fff;padding:4px;}
+.hiro-frame svg{display:block;width:100%;height:100%;}
 .steps{display:flex;flex-direction:column;gap:7px;}
 .step{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--cream);}
 .num{width:22px;height:22px;border-radius:50%;background:var(--ember);color:#fff;
@@ -53,6 +93,7 @@ a-scene canvas{position:fixed!important;top:0!important;left:0!important;
 </style>
 </head>
 <body>
+
 <a-scene embedded
   arjs="sourceType:webcam;debugUIEnabled:false;detectionMode:mono_and_matrix;matrixCodeType:3x3;"
   vr-mode-ui="enabled:false"
@@ -61,88 +102,86 @@ a-scene canvas{position:fixed!important;top:0!important;left:0!important;
 
   <a-marker preset="hiro" id="hiroMarker">
 
-    <!-- ── Pizza principal ───────────────────────────────────────── -->
-    <a-entity id="pizzaModel" position="0 0.12 0" rotation="-90 0 0" scale="2.6 2.6 2.6">
+    <!-- ═══ PIZZA 3D — escala 5× para que sea bien visible ═══ -->
+    <a-entity id="pizzaModel" position="0 0.15 0" rotation="-90 0 0" scale="5 5 5">
 
-      <!-- Base de la pizza (masa gruesa color dorado) -->
+      <!-- Masa / base dorada gruesa -->
       <a-cylinder radius="0.56" height="0.07" color="#dfa84a"
-        material="roughness:0.95;metalness:0.0" position="0 0 0"></a-cylinder>
+        material="roughness:0.95;metalness:0" position="0 0 0"></a-cylinder>
 
-      <!-- Borde de la corteza (crust ring) -->
-      <a-torus radius="0.53" radius-tubular="0.075" color="#b8762a"
+      <!-- Borde de corteza (crust) -->
+      <a-torus radius="0.53" radius-tubular="0.08" color="#b8762a"
         material="roughness:0.98" rotation="90 0 0" position="0 0.01 0"></a-torus>
 
       <!-- Salsa de tomate -->
       <a-cylinder radius="0.455" height="0.02" color="#bb2015"
         material="roughness:0.75" position="0 0.045 0"></a-cylinder>
 
-      <!-- Capa de mozzarella (base blanquecina) -->
+      <!-- Mozzarella base (blanquecina) -->
       <a-cylinder radius="0.39" height="0.016" color="#eddeb8"
         material="roughness:0.55" position="0 0.062 0"></a-cylinder>
 
       <!-- Blobs de mozzarella derretida -->
-      <a-sphere radius="0.135" color="#f0e2b2" material="roughness:0.45"
-        position="0.17 0.072 0.11" scale="1 0.24 1"></a-sphere>
-      <a-sphere radius="0.125" color="#f0e2b2" material="roughness:0.45"
-        position="-0.21 0.072 0.08" scale="1 0.24 1"></a-sphere>
-      <a-sphere radius="0.115" color="#f0e2b2" material="roughness:0.45"
-        position="0.07 0.072 -0.23" scale="1 0.24 1"></a-sphere>
-      <a-sphere radius="0.105" color="#f0e2b2" material="roughness:0.45"
-        position="-0.10 0.072 0.22" scale="1 0.24 1"></a-sphere>
-      <a-sphere radius="0.095" color="#f0e2b2" material="roughness:0.45"
-        position="0.26 0.072 -0.12" scale="1 0.24 1"></a-sphere>
+      <a-sphere radius="0.14" color="#f0e2b2" material="roughness:0.45"
+        position="0.17 0.073 0.11" scale="1 0.25 1"></a-sphere>
+      <a-sphere radius="0.13" color="#f0e2b2" material="roughness:0.45"
+        position="-0.21 0.073 0.08" scale="1 0.25 1"></a-sphere>
+      <a-sphere radius="0.12" color="#f0e2b2" material="roughness:0.45"
+        position="0.07 0.073 -0.23" scale="1 0.25 1"></a-sphere>
+      <a-sphere radius="0.11" color="#f0e2b2" material="roughness:0.45"
+        position="-0.10 0.073 0.22" scale="1 0.25 1"></a-sphere>
+      <a-sphere radius="0.10" color="#f0e2b2" material="roughness:0.45"
+        position="0.26 0.073 -0.12" scale="1 0.25 1"></a-sphere>
 
-      <!-- Pepperoni (6 rodajas oscuras) -->
-      <a-cylinder radius="0.082" height="0.016" color="#7a1212"
-        material="roughness:0.65" position="0.22 0.082 0.04"></a-cylinder>
-      <a-cylinder radius="0.082" height="0.016" color="#851818"
-        material="roughness:0.65" position="-0.22 0.082 0.04"></a-cylinder>
-      <a-cylinder radius="0.082" height="0.016" color="#7a1212"
-        material="roughness:0.65" position="0.04 0.082 0.25"></a-cylinder>
-      <a-cylinder radius="0.075" height="0.016" color="#851818"
-        material="roughness:0.65" position="-0.09 0.082 -0.25"></a-cylinder>
-      <a-cylinder radius="0.075" height="0.016" color="#7a1212"
-        material="roughness:0.65" position="0.20 0.082 -0.19"></a-cylinder>
-      <a-cylinder radius="0.075" height="0.016" color="#851818"
-        material="roughness:0.65" position="-0.20 0.082 0.19"></a-cylinder>
-      <!-- Pepperoni central -->
-      <a-cylinder radius="0.068" height="0.016" color="#7a1212"
-        material="roughness:0.65" position="0.00 0.082 0.00"></a-cylinder>
+      <!-- Pepperoni (7 rodajas) -->
+      <a-cylinder radius="0.085" height="0.017" color="#7a1212"
+        material="roughness:0.65" position="0.22 0.083 0.04"></a-cylinder>
+      <a-cylinder radius="0.085" height="0.017" color="#851818"
+        material="roughness:0.65" position="-0.22 0.083 0.04"></a-cylinder>
+      <a-cylinder radius="0.085" height="0.017" color="#7a1212"
+        material="roughness:0.65" position="0.04 0.083 0.25"></a-cylinder>
+      <a-cylinder radius="0.078" height="0.017" color="#851818"
+        material="roughness:0.65" position="-0.09 0.083 -0.25"></a-cylinder>
+      <a-cylinder radius="0.078" height="0.017" color="#7a1212"
+        material="roughness:0.65" position="0.20 0.083 -0.19"></a-cylinder>
+      <a-cylinder radius="0.078" height="0.017" color="#851818"
+        material="roughness:0.65" position="-0.20 0.083 0.19"></a-cylinder>
+      <a-cylinder radius="0.070" height="0.017" color="#7a1212"
+        material="roughness:0.65" position="0.00 0.083 0.00"></a-cylinder>
 
-      <!-- Albahaca (hojas verdes) -->
-      <a-sphere radius="0.055" color="#267326"
-        material="roughness:0.7" position="0.28 0.078 0.13" scale="1.5 0.28 0.9"></a-sphere>
-      <a-sphere radius="0.050" color="#2a8a2a"
-        material="roughness:0.7" position="-0.14 0.078 0.30" scale="1.5 0.28 0.9"></a-sphere>
-      <a-sphere radius="0.045" color="#267326"
-        material="roughness:0.7" position="0.10 0.078 -0.31" scale="1.5 0.28 0.9"></a-sphere>
+      <!-- Hojas de albahaca -->
+      <a-sphere radius="0.058" color="#267326" material="roughness:0.7"
+        position="0.28 0.079 0.13" scale="1.5 0.28 0.9"></a-sphere>
+      <a-sphere radius="0.052" color="#2a8a2a" material="roughness:0.7"
+        position="-0.14 0.079 0.30" scale="1.5 0.28 0.9"></a-sphere>
+      <a-sphere radius="0.048" color="#267326" material="roughness:0.7"
+        position="0.10 0.079 -0.31" scale="1.5 0.28 0.9"></a-sphere>
 
-      <!-- Texture bumps en la corteza -->
-      <a-sphere radius="0.032" color="#c8902e" material="roughness:0.95"
+      <!-- Bumps de corteza -->
+      <a-sphere radius="0.033" color="#c8902e" material="roughness:0.95"
         position="0.52 0.04 0.10"></a-sphere>
-      <a-sphere radius="0.030" color="#c8902e" material="roughness:0.95"
+      <a-sphere radius="0.031" color="#c8902e" material="roughness:0.95"
         position="-0.52 0.04 0.10"></a-sphere>
-      <a-sphere radius="0.030" color="#c8902e" material="roughness:0.95"
+      <a-sphere radius="0.031" color="#c8902e" material="roughness:0.95"
         position="0.10 0.04 0.52"></a-sphere>
-      <a-sphere radius="0.028" color="#c8902e" material="roughness:0.95"
+      <a-sphere radius="0.029" color="#c8902e" material="roughness:0.95"
         position="-0.10 0.04 -0.50"></a-sphere>
 
-      <!-- Marca RapiPizza en la corteza inferior -->
+      <!-- Marca -->
       <a-text value="RapiPizza" align="center" color="#c81d25"
         font="exo2bold" width="2.4" position="0 0.01 0.50" rotation="90 0 0"></a-text>
 
     </a-entity>
 
-    <!-- Iluminación para volumen 3D -->
-    <a-entity light="type:point;color:#ffdc80;intensity:1.6;distance:5" position="0 1.5 0.5"></a-entity>
-    <a-entity light="type:ambient;color:#fff8e8;intensity:0.7"></a-entity>
-
+    <!-- Luces para dar volumen -->
+    <a-entity light="type:point;color:#ffdc80;intensity:1.6;distance:6" position="0 2 0.5"></a-entity>
+    <a-entity light="type:ambient;color:#fff8e8;intensity:0.8"></a-entity>
   </a-marker>
 
   <a-entity camera></a-entity>
 </a-scene>
 
-<!-- HUD -->
+<!-- HUD superpuesto -->
 <div id="hud">
   <div id="topBar">
     <div id="brand"><span>Rapi<b>Pizza</b> AR</span></div>
@@ -152,15 +191,13 @@ a-scene canvas{position:fixed!important;top:0!important;left:0!important;
   <div id="spacer"></div>
   <div id="instructions">
     <h2>Cómo ver tu pizza en AR</h2>
-    <p>Muestra el marcador Hiro a la cámara y la pizza aparecerá en 3D.</p>
+    <p>Muestra este marcador Hiro a la cámara y la pizza aparecerá en 3D.</p>
     <div class="hiro-row">
       <div class="hiro-frame">
-        <!-- Marcador Hiro en SVG inline (patrón oficial simplificado) -->
-        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="90" height="90">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
           <rect width="100" height="100" fill="white"/>
           <rect x="5" y="5" width="90" height="90" fill="black"/>
           <rect x="10" y="10" width="80" height="80" fill="white"/>
-          <!-- Patrón Hiro: franjas horizontales y verticales -->
           <rect x="15" y="15" width="30" height="30" fill="black"/>
           <rect x="55" y="15" width="30" height="30" fill="black"/>
           <rect x="15" y="55" width="30" height="30" fill="black"/>
@@ -175,56 +212,81 @@ a-scene canvas{position:fixed!important;top:0!important;left:0!important;
     </div>
     <div class="steps">
       <div class="step"><div class="num">1</div><span>Muestra esta imagen o imprímela en papel</span></div>
-      <div class="step"><div class="num">2</div><span>Apunta tu cámara hacia el marcador Hiro</span></div>
+      <div class="step"><div class="num">2</div><span>Apunta la cámara de tu celular al marcador</span></div>
       <div class="step"><div class="num">3</div><span>La pizza aparecerá sobre él en 3D 🍕</span></div>
     </div>
   </div>
 </div>
 
 <script>
-// Actualizar nombre del producto si viene por URL
+// ── Nombre del producto desde URL ─────────────────────────────────────────────
 (function(){
-  var params = new URLSearchParams(location.search);
-  var pName = params.get('product');
-  if(pName){
-    document.getElementById('pdName').textContent = '\u{1F355} ' + decodeURIComponent(pName) + ' en AR';
-    document.title = 'RapiPizza AR — ' + decodeURIComponent(pName);
+  var p = new URLSearchParams(location.search).get('product');
+  if(p){
+    document.getElementById('pdName').textContent = '\u{1F355} '+decodeURIComponent(p)+' en AR';
+    document.title = 'RapiPizza AR — '+decodeURIComponent(p);
   }
 })();
 
-// MutationObserver: forzar video a llenar pantalla cuando AR.js lo inyecte
+// ── Fix de franja blanca: forzar video a cubrir todo el viewport ──────────────
+// AR.js inyecta el <video> dinámicamente y le pone width/height fijos.
+// Necesitamos sobrescribir esos estilos y también el tamaño del canvas.
 (function(){
-  function fixVideo(el){
-    el.style.cssText = [
-      'position:fixed!important',
-      'top:0!important','left:0!important',
-      'width:100vw!important','height:100vh!important',
-      'min-width:100vw!important','min-height:100vh!important',
-      'object-fit:cover!important','z-index:0!important',
-      'transform:none!important','margin:0!important'
-    ].join(';');
-    // Re-aplicar cada vez que el browser lo resetee
-    el.addEventListener('loadedmetadata', function(){ fixVideo(el); });
+  function applyFill(el){
+    // Quitar atributos de tamaño que AR.js pone (ej. width="640" height="480")
+    el.removeAttribute('width');
+    el.removeAttribute('height');
+    // Forzar CSS inline (mayor especificidad que stylesheet)
+    el.style.setProperty('position','fixed','important');
+    el.style.setProperty('top','0','important');
+    el.style.setProperty('left','0','important');
+    el.style.setProperty('width','100vw','important');
+    el.style.setProperty('height','100vh','important');
+    el.style.setProperty('min-width','100vw','important');
+    el.style.setProperty('min-height','100vh','important');
+    el.style.setProperty('max-width','none','important');
+    el.style.setProperty('max-height','none','important');
+    el.style.setProperty('object-fit','cover','important');
+    el.style.setProperty('object-position','center','important');
+    el.style.setProperty('z-index','0','important');
+    el.style.setProperty('transform','none','important');
   }
 
+  // Observar inserción dinámica de <video> por AR.js
   var obs = new MutationObserver(function(muts){
     muts.forEach(function(m){
-      m.addedNodes.forEach(function(node){
-        if(node.nodeName === 'VIDEO') fixVideo(node);
+      m.addedNodes.forEach(function(n){
+        if(n.nodeName==='VIDEO'){ applyFill(n); }
+        // AR.js a veces mete el video dentro de un div
+        if(n.querySelectorAll){
+          n.querySelectorAll('video').forEach(applyFill);
+        }
       });
     });
   });
-  obs.observe(document.body, {childList:true, subtree:true});
+  obs.observe(document.body,{childList:true,subtree:true});
 
-  // Capturar videos ya existentes
-  document.querySelectorAll('video').forEach(fixVideo);
-  // Fallback: verificar en cada frame durante los primeros 5 segundos
-  var deadline = Date.now() + 5000;
+  // También capturar videos ya existentes y re-aplicar en loadedmetadata
+  document.querySelectorAll('video').forEach(function(v){
+    applyFill(v);
+    v.addEventListener('loadedmetadata', function(){ applyFill(v); });
+    v.addEventListener('resize', function(){ applyFill(v); });
+  });
+
+  // Polling agresivo durante los primeros 8 segundos (AR.js puede tardar)
+  var t0 = Date.now();
   function poll(){
-    document.querySelectorAll('video').forEach(fixVideo);
-    if(Date.now() < deadline) requestAnimationFrame(poll);
+    document.querySelectorAll('video').forEach(function(v){
+      applyFill(v);
+      if(!v._fillBound){
+        v._fillBound = true;
+        v.addEventListener('loadedmetadata', function(){ applyFill(v); });
+        v.addEventListener('resize', function(){ applyFill(v); });
+      }
+    });
+    if(Date.now()-t0 < 8000) setTimeout(poll, 200);
   }
-  requestAnimationFrame(poll);
+  poll();
 })();
 </script>
 </body>

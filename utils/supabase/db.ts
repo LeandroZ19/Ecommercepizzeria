@@ -207,6 +207,12 @@ export async function upsertProfile(
 
 // ─── Operaciones de pedidos ───────────────────────────────────────────────────
 
+/** Retorna true solo si la cadena es un UUID v4 válido (para product_id en order_items) */
+function isValidUUID(s: string | null | undefined): boolean {
+  if (!s) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+}
+
 export async function createOrder(
   input: CreateOrderInput,
 ): Promise<{ data: OrderRow | null; error: unknown }> {
@@ -237,7 +243,9 @@ export async function createOrder(
   if (input.items.length > 0) {
     const itemRows = input.items.map(item => ({
       order_id:      orderRow.id,
-      product_id:    item.productId || null,
+      // Los IDs del carrito local son strings ("pizza-americana"), no UUIDs.
+      // Pasar un string inválido como UUID hace fallar el INSERT con error de FK.
+      product_id:    isValidUUID(item.productId) ? item.productId : null,
       product_name:  item.productName,
       product_image: item.productImage || null,
       price:         item.price,

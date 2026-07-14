@@ -3,21 +3,24 @@
 -- File: 008_promotions_martes_locura.sql
 --
 -- Ejecutar en: https://supabase.com/dashboard/project/wdiflamxurlzstyicdma/sql/new
+--
+-- NOTA: La tabla promotions NO tiene columna updated_at.
 -- ============================================================================
 
--- Actualizar si ya existe la promoción del martes
+-- 1. Actualizar si ya existe una promoción del martes (día 2)
 UPDATE public.promotions
 SET
   name        = 'Martes de Locura -40%',
   description = '¡Todos los martes, 40% de descuento en TODA tu compra! Sin código, sin restricciones.',
   discount    = 40,
   details     = 'Aplica a toda la carta: pizzas, combos, bebidas y acompañamientos.',
-  updated_at  = NOW()
+  active      = true
 WHERE day_of_week = 2
   AND type = 'daily';
 
--- Insertar si no existe
-INSERT INTO public.promotions (name, description, discount, image, type, day_of_week, active, sort_order, details)
+-- 2. Si no existe ninguna del martes, insertarla
+INSERT INTO public.promotions
+  (name, description, discount, image, type, day_of_week, active, sort_order, details)
 SELECT
   'Martes de Locura -40%',
   '¡Todos los martes, 40% de descuento en TODA tu compra! Sin código, sin restricciones.',
@@ -29,12 +32,11 @@ SELECT
   1,
   'Aplica a toda la carta: pizzas, combos, bebidas y acompañamientos.'
 WHERE NOT EXISTS (
-  SELECT 1 FROM public.promotions WHERE day_of_week = 2 AND type = 'daily'
+  SELECT 1 FROM public.promotions
+  WHERE day_of_week = 2 AND type = 'daily'
 );
 
--- Desactivar otras promociones duplicadas del martes si las hay
-UPDATE public.promotions
-SET active = false
-WHERE day_of_week = 2
-  AND type = 'daily'
-  AND name <> 'Martes de Locura -40%';
+-- 3. Verificar resultado
+SELECT id, name, discount, day_of_week, active
+FROM public.promotions
+WHERE day_of_week = 2;
