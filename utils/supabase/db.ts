@@ -59,9 +59,10 @@ export interface OrderItemRow {
   product_image: string | null;
   price:         number;
   quantity:      number;
-  subtotal:      number;
-  variant_name:  string | null;
-  created_at:    string;
+  // subtotal y variant_name se añaden via migration 011; calcular como price*quantity si no existen
+  subtotal?:     number;
+  variant_name?: string | null;
+  created_at?:   string;
 }
 
 export interface OrderWithItems extends OrderRow {
@@ -235,24 +236,35 @@ export async function createOrder(
   }
 
   if (input.items.length > 0) {
-    // product_id es TEXT (no UUID) — se puede guardar el ID local del carrito.
-    // subtotal y variant_name existen tras ejecutar migration 010.
-    const itemRows = input.items.map(item => ({
+    // Solo insertar columnas que existen en el schema original (migration 001).
+    // subtotal y variant_name se añaden opcionalmente si se ejecutó migration 011.
+    const baseRows = input.items.map(item => ({
       order_id:      orderRow.id,
       product_id:    item.productId || item.productName,
       product_name:  item.productName,
       product_image: item.productImage || null,
       price:         item.price,
       quantity:      item.quantity,
-      subtotal:      item.price * item.quantity,
-      variant_name:  item.variantName || null,
     }));
 
-    const { error: itemsErr } = await supabase.from('order_items').insert(itemRows);
+    // Intentar primero con columnas extendidas (si ya se ejecutó migration 011)
+    const extendedRows = input.items.map((item, i) => ({
+      ...baseRows[i],
+      subtotal:     item.price * item.quantity,
+      variant_name: item.variantName || null,
+    }));
+
+    let { error: itemsErr } = await supabase.from('order_items').insert(extendedRows);
+
+    // Si falla por columnas inexistentes, reintentar solo con columnas base
     if (itemsErr) {
-      console.error('[db] order_items insert error:', itemsErr.message, itemsErr);
-      // Eliminar el pedido huérfano para mantener consistencia en la BD
-      await supabase.from('orders').delete().eq('id', orderRow.id);
+      console.warn('[db] order_items extended insert failed, retrying with base columns:', itemsErr.message);
+      const retry = await supabase.from('order_items').insert(baseRows);
+      itemsErr = retry.error;
+    }
+
+    if (itemsErr) {
+      console.error('[db] order_items insert error FINAL:', itemsErr.message, itemsErr);
       return { data: null, error: itemsErr };
     }
   }

@@ -10,7 +10,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { createOrder } from '../../../utils/supabase/db';
+import { createOrder, decrementProductStock } from '../../../utils/supabase/db';
 import { generateBoletaPDF } from '../components/BoletaPDF';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -98,6 +98,13 @@ export default function Checkout() {
 
       const confirmedOrderId = savedOrder.id;
       const orderNumber      = savedOrder.order_number ?? null;
+
+      // Decrementar stock por nombre (fallback si el trigger DB no está creado aún)
+      await Promise.allSettled(
+        items.map(item =>
+          decrementProductStock(item.name, item.quantity),
+        ),
+      );
 
       generateBoletaPDF({
         orderId:        confirmedOrderId,

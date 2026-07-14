@@ -244,7 +244,7 @@ function DeliveryCard({
             {order.order_items.map(item => (
               <div key={item.id} className="flex justify-between text-sm">
                 <span className="text-muted-foreground">{item.product_name} <span className="font-medium text-foreground">×{item.quantity}</span></span>
-                <span>S/ {item.subtotal.toFixed(2)}</span>
+                <span>S/ {((item.subtotal ?? item.price * item.quantity)).toFixed(2)}</span>
               </div>
             ))}
           </div>
@@ -476,7 +476,7 @@ function AdminOrderCard({
             {order.order_items.map(item => (
               <div key={item.id} className="flex justify-between text-sm">
                 <span className="text-muted-foreground">{item.product_name} <span className="font-medium text-foreground">×{item.quantity}</span></span>
-                <span>S/ {item.subtotal.toFixed(2)}</span>
+                <span>S/ {((item.subtotal ?? item.price * item.quantity)).toFixed(2)}</span>
               </div>
             ))}
           </div>
