@@ -137,7 +137,9 @@ function RouteMap({ address, orderId }: { address: string; orderId: string }) {
   }
 
   return (
-    <div className="relative">
+    /* isolation:isolate creates a new stacking context so Leaflet controls
+       (z-index ~1000) don't escape and overlap the sticky navbar */
+    <div style={{ isolation: 'isolate' }} className="relative">
       {loading && (
         <div className="absolute inset-0 bg-muted rounded-xl flex items-center justify-center z-10">
           <span className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />

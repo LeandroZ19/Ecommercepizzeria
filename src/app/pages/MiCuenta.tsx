@@ -13,7 +13,8 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Badge } from '../components/ui/badge';
-import { User, Package, LogOut, Edit, Mail, Phone, MapPin, Lock, Hash } from 'lucide-react';
+import { User, Package, LogOut, Edit, Mail, Phone, MapPin, Lock, Hash, ListOrdered } from 'lucide-react';
+import { fetchQueuePosition } from '../../../utils/supabase/db';
 import { toast } from 'sonner';
 
 // ─── Mapa de seguimiento (cliente ve la ruta directamente) ───────────────────
@@ -164,6 +165,13 @@ const STATUS_TEXT: Record<string, string> = {
 function OrderCard({ order }: { order: Order }) {
   const isCancelled = order.status === 'cancelled';
   const showMap     = order.status === 'sent' && order.delivery_type === 'delivery' && !!order.address;
+  const isActive    = order.status === 'pending' || order.status === 'preparing';
+  const [queuePos, setQueuePos] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!isActive) return;
+    fetchQueuePosition(order.id).then(({ position }) => setQueuePos(position));
+  }, [order.id, isActive]);
 
   return (
     <div className="bg-card rounded-xl p-4 md:p-6 shadow-sm border border-border">
@@ -184,6 +192,12 @@ function OrderCard({ order }: { order: Order }) {
             {new Date(order.date).toLocaleDateString('es-PE', { year: 'numeric', month: 'long', day: 'numeric' })}
             {order.district ? ` · ${order.district}` : ''}
           </p>
+          {isActive && queuePos !== null && (
+            <div className="mt-1.5 inline-flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold px-2.5 py-1 rounded-full">
+              <ListOrdered className="w-3.5 h-3.5" />
+              Posición en cola: #{queuePos}
+            </div>
+          )}
         </div>
         <Badge className={`text-xs ${STATUS_BADGE[order.status] ?? 'bg-gray-100 text-gray-800'}`}>
           {STATUS_TEXT[order.status] ?? order.status}

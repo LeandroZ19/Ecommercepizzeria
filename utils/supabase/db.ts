@@ -318,18 +318,56 @@ export async function decrementProductStock(
   // Quitar sufijo de tamaño entre paréntesis: "Pizza Americana (Mediana)" → "Pizza Americana"
   const baseName = productName.replace(/\s*\(.*\)\s*$/, '').trim();
 
-  const { data: current, error: fetchErr } = await supabase
+  // Try exact match first, then fall back to partial match
+  let { data: current, error: fetchErr } = await supabase
     .from('products')
     .select('id, stock')
     .ilike('name', baseName)
     .maybeSingle();
-  if (fetchErr || !current) return { error: fetchErr ?? new Error(`Product not found: ${baseName}`) };
+  if (!current) {
+    const res = await supabase
+      .from('products')
+      .select('id, stock')
+      .ilike('name', `%${baseName}%`)
+      .limit(1)
+      .maybeSingle();
+    current = res.data;
+    fetchErr = res.error;
+  }
+  if (fetchErr || !current) {
+    console.error(`[db] decrementProductStock: product not found for "${baseName}"`);
+    return { error: fetchErr ?? new Error(`Product not found: ${baseName}`) };
+  }
   const newStock = Math.max(0, (current.stock ?? 0) - amount);
   const { error } = await supabase
     .from('products')
     .update({ stock: newStock })
     .eq('id', current.id);
   return { error };
+}
+
+/**
+ * Calcula la posición del pedido en la cola virtual.
+ * Posición = cantidad de pedidos activos (pending/preparing) creados ANTES de éste + 1.
+ */
+export async function fetchQueuePosition(
+  orderId: string,
+): Promise<{ position: number | null; error: unknown }> {
+  const { data: current, error: fetchErr } = await supabase
+    .from('orders')
+    .select('created_at')
+    .eq('id', orderId)
+    .single();
+  if (fetchErr || !current) return { position: null, error: fetchErr };
+
+  const { count, error } = await supabase
+    .from('orders')
+    .select('id', { count: 'exact', head: true })
+    .in('status', ['pending', 'preparing'])
+    .lt('created_at', current.created_at);
+
+  if (error) return { position: null, error };
+  return { position: (count ?? 0) + 1, error: null };
 }
 
 // ─── Operaciones de productos ─────────────────────────────────────────────────
