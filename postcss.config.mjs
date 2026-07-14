@@ -12,4 +12,13 @@
  *
  * Otherwise, you can leave this file empty.
  */
-export default {}
+export default {
+  plugins: [
+    {
+      postcssPlugin: 'remove-charset',
+      Once(root) {
+        root.walkAtRules('charset', (rule) => rule.remove());
+      },
+    },
+  ],
+}

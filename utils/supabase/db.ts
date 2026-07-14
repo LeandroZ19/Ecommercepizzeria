@@ -280,25 +280,32 @@ export async function saveOrderItems(
 ): Promise<{ error: unknown }> {
   if (!items.length) return { error: null };
 
-  const rows = items.map(item => ({
+  // Columnas base que SIEMPRE existen (schema original migration 001)
+  const baseRows = items.map(item => ({
     order_id:      orderId,
     product_id:    item.productId ?? item.productName,
     product_name:  item.productName,
     product_image: item.productImage ?? null,
     price:         item.price,
     quantity:      item.quantity,
-    subtotal:      item.price * item.quantity,
-    variant_name:  item.variantName ?? null,
+  }));
+
+  // Payload extendido para RPC que incluye subtotal (añadido por migration 012)
+  const fullRows = baseRows.map((row, i) => ({
+    ...row,
+    subtotal:     items[i].price * items[i].quantity,
+    variant_name: items[i].variantName ?? null,
   }));
 
   // Intento 1: insert_order_items RPC — SECURITY DEFINER, bypasa RLS (migration 012)
-  const { error: rpcErr } = await supabase.rpc('insert_order_items', { p_items: rows });
+  const { error: rpcErr } = await supabase.rpc('insert_order_items', { p_items: fullRows });
   if (!rpcErr) return { error: null };
 
   console.warn('[saveOrderItems] RPC falló:', (rpcErr as { message?: string })?.message);
 
-  // Intento 2: INSERT directo item por item
-  for (const row of rows) {
+  // Intento 2: INSERT directo usando solo columnas originales (sin subtotal/variant_name)
+  // Esto funciona incluso si migration 012 no se ejecutó
+  for (const row of baseRows) {
     const { error } = await supabase.from('order_items').insert(row);
     if (error) {
       console.error('[saveOrderItems] INSERT falló:', error.message, '| producto:', row.product_name);
