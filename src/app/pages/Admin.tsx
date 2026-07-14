@@ -264,26 +264,27 @@ function DeliveryCard({
               </Button>
             )}
             {status === 'sent' && (
-              <>
-                <Button
-                  onClick={handleDeliver}
-                  disabled={loading}
-                  className="gap-2 flex-1 bg-green-600 hover:bg-green-700"
-                >
-                  {loading
-                    ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    : <CheckCircle className="w-4 h-4" />}
-                  Marcar Entregado
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowMap(s => !s)}
-                  className="gap-2"
-                >
-                  <MapPin className="w-4 h-4" />
-                  {showMap ? 'Ocultar mapa' : 'Ver mapa'}
-                </Button>
-              </>
+              <Button
+                onClick={handleDeliver}
+                disabled={loading}
+                className="gap-2 flex-1 bg-green-600 hover:bg-green-700"
+              >
+                {loading
+                  ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  : <CheckCircle className="w-4 h-4" />}
+                Marcar Entregado
+              </Button>
+            )}
+            {/* Botón mapa disponible para todos los estados activos */}
+            {order.address && (status === 'pending' || status === 'preparing' || status === 'sent') && (
+              <Button
+                variant="outline"
+                onClick={() => setShowMap(s => !s)}
+                className="gap-2"
+              >
+                <MapPin className="w-4 h-4" />
+                {showMap ? 'Ocultar mapa' : 'Ver mapa'}
+              </Button>
             )}
           </div>
 

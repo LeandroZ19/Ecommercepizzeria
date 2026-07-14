@@ -89,15 +89,15 @@ export default function Checkout() {
         customerPhone: user.phone,
       });
 
-      if (orderErr) {
+      if (orderErr || !savedOrder) {
         console.error('[checkout] createOrder error:', orderErr);
+        toast.error('Error al guardar el pedido. Intenta nuevamente.');
+        setIsProcessing(false);
+        return;
       }
 
-      // El stock se descuenta automáticamente vía trigger en order_items (migration 009).
-      // No llamar decrementProductStock desde aquí para evitar doble descuento.
-
-      const confirmedOrderId = savedOrder?.id ?? crypto.randomUUID();
-      const orderNumber      = savedOrder?.order_number ?? null;
+      const confirmedOrderId = savedOrder.id;
+      const orderNumber      = savedOrder.order_number ?? null;
 
       generateBoletaPDF({
         orderId:        confirmedOrderId,

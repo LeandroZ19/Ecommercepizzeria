@@ -249,7 +249,12 @@ export async function createOrder(
     }));
 
     const { error: itemsErr } = await supabase.from('order_items').insert(itemRows);
-    if (itemsErr) console.error('[db] order_items insert error:', itemsErr.message);
+    if (itemsErr) {
+      console.error('[db] order_items insert error:', itemsErr.message, itemsErr);
+      // Eliminar el pedido huérfano para mantener consistencia en la BD
+      await supabase.from('orders').delete().eq('id', orderRow.id);
+      return { data: null, error: itemsErr };
+    }
   }
 
   return { data: orderRow as OrderRow, error: null };
