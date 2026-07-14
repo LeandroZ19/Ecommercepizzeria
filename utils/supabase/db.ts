@@ -211,6 +211,42 @@ export async function upsertProfile(
 export async function createOrder(
   input: CreateOrderInput,
 ): Promise<{ data: OrderRow | null; error: unknown }> {
+  // Usar RPC create_order_with_items (SECURITY DEFINER) como método principal.
+  // Esta función crea orden + items en una sola transacción atómica, bypassando RLS.
+  // Requiere haber ejecutado migration 014_create_order_rpc.sql en Supabase.
+  const itemsPayload = input.items.map(item => ({
+    product_id:    item.productId ?? item.productName,
+    product_name:  item.productName,
+    product_image: item.productImage ?? null,
+    price:         item.price,
+    quantity:      item.quantity,
+    variant_name:  item.variantName ?? null,
+  }));
+
+  const { data: rpcData, error: rpcErr } = await supabase.rpc('create_order_with_items', {
+    p_user_id:        input.userId,
+    p_items:          itemsPayload,
+    p_total:          input.total,
+    p_subtotal:       input.subtotal,
+    p_discount:       input.discount,
+    p_delivery_fee:   input.deliveryFee,
+    p_district:       input.district       || '',
+    p_delivery_type:  input.deliveryType,
+    p_payment_method: input.paymentMethod,
+    p_address:        input.address        || '',
+    p_coupon_code:    input.couponCode     || '',
+    p_customer_name:  input.customerName   || '',
+    p_customer_phone: input.customerPhone  || '',
+  });
+
+  if (!rpcErr && rpcData) {
+    // RPC exitoso — retornar orden creada
+    return { data: rpcData as OrderRow, error: null };
+  }
+
+  // Fallback: INSERT directo si la función RPC no existe aún (antes de migration 014)
+  console.warn('[db] create_order_with_items RPC failed:', rpcErr, '— using direct insert fallback');
+
   const { data: orderRow, error: orderErr } = await supabase
     .from('orders')
     .insert({
@@ -220,13 +256,13 @@ export async function createOrder(
       subtotal:       input.subtotal,
       discount:       input.discount,
       delivery_fee:   input.deliveryFee,
-      district:       input.district || null,
+      district:       input.district       || null,
       delivery_type:  input.deliveryType,
       payment_method: input.paymentMethod,
-      address:        input.address || null,
-      coupon_code:    input.couponCode || null,
-      customer_name:  input.customerName || null,
-      customer_phone: input.customerPhone || null,
+      address:        input.address        || null,
+      coupon_code:    input.couponCode     || null,
+      customer_name:  input.customerName   || null,
+      customer_phone: input.customerPhone  || null,
     })
     .select()
     .single();
@@ -235,54 +271,22 @@ export async function createOrder(
     return { data: null, error: orderErr ?? new Error('Order insert returned no data') };
   }
 
-  // Insertar items — intentamos tres variantes del schema para máxima compatibilidad.
-  // Un fallo en items NO cancela el pedido; la orden ya fue creada y es válida.
+  // Intentar insertar items directamente
   if (input.items.length > 0) {
-    // Columnas que SIEMPRE existen (schema original migration 001)
-    const baseRows = input.items.map(item => ({
+    const rows = input.items.map(item => ({
       order_id:      orderRow.id,
       product_id:    item.productId ?? item.productName,
       product_name:  item.productName,
       product_image: item.productImage ?? null,
       price:         item.price,
       quantity:      item.quantity,
+      subtotal:      item.price * item.quantity,
+      variant_name:  item.variantName ?? null,
     }));
 
-    // Columnas extendidas (solo si se ejecutó migration 011/012)
-    const extendedRows = baseRows.map((row, i) => ({
-      ...row,
-      subtotal:     input.items[i].price * input.items[i].quantity,
-      variant_name: input.items[i].variantName ?? null,
-    }));
-
-    // Intento 1: schema extendido (con subtotal/variant_name)
-    let { error: e1 } = await supabase.from('order_items').insert(extendedRows);
-
-    // Intento 2: schema base (sin subtotal/variant_name — por si aún no se ejecutó migration 012)
-    if (e1) {
-      console.warn('[db] items insert (extended) failed:', e1.message, '— retrying base schema');
-      const { error: e2 } = await supabase.from('order_items').insert(baseRows);
-
-      // Intento 3: RPC con SECURITY DEFINER (bypasa RLS — requiere haber ejecutado migration 012)
-      if (e2) {
-        console.warn('[db] items insert (base) failed:', e2.message, '— trying RPC fallback');
-        const rpcPayload = extendedRows.map(r => ({
-          order_id:      r.order_id,
-          product_id:    r.product_id,
-          product_name:  r.product_name,
-          product_image: r.product_image,
-          price:         r.price,
-          quantity:      r.quantity,
-          subtotal:      r.subtotal,
-          variant_name:  r.variant_name,
-        }));
-        const { error: e3 } = await supabase.rpc('insert_order_items', { p_items: rpcPayload });
-        if (e3) {
-          console.error('[db] items RPC insert also failed:', e3.message, e3);
-          // No cancelar el pedido — la orden está creada, solo faltan items.
-          // Ejecutar migration 012_minimo_urgente.sql en Supabase para resolver definitivamente.
-        }
-      }
+    const { error: itemsErr } = await supabase.from('order_items').insert(rows);
+    if (itemsErr) {
+      console.error('[db] fallback order_items insert failed:', itemsErr.message, itemsErr);
     }
   }
 
@@ -315,11 +319,11 @@ export async function fetchAllOrders(): Promise<{ data: OrderWithItems[]; error:
 export async function fetchItemsByOrderId(
   orderId: string,
 ): Promise<{ data: OrderItemRow[]; error: unknown }> {
+  // Intentar con order por created_at primero; si falla (columna no existe), sin order
   const { data, error } = await supabase
     .from('order_items')
     .select('*')
-    .eq('order_id', orderId)
-    .order('created_at', { ascending: true });
+    .eq('order_id', orderId);
   return { data: (data ?? []) as OrderItemRow[], error };
 }
 
