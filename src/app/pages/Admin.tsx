@@ -2,9 +2,8 @@ import { motion } from 'motion/react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
-import { fetchAllOrders, updateOrderStatus } from '../../../utils/supabase/db';
+import { fetchAllOrders, fetchItemsByOrderId, updateOrderStatus } from '../../../utils/supabase/db';
 import type { OrderWithItems, OrderItemRow } from '../../../utils/supabase/db';
-import { supabase } from '../../../utils/supabase/client';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import {
@@ -146,27 +145,25 @@ function DeliveryCard({
   order: OrderWithItems;
   onStatusChange: (id: string, status: OrderStatus) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const [showMap,  setShowMap]  = useState(false);
-  const [loading,  setLoading]  = useState(false);
-  const [items,    setItems]    = useState<OrderItemRow[]>(order.order_items ?? []);
+  const [expanded,      setExpanded]      = useState(false);
+  const [showMap,       setShowMap]       = useState(false);
+  const [loading,       setLoading]       = useState(false);
+  const [items,         setItems]         = useState<OrderItemRow[]>([]);
   const [fetchingItems, setFetchingItems] = useState(false);
+  const hasFetched = useRef(false);
 
   const status = order.status as OrderStatus;
 
-  // Lazy-load items when expanded and none came from the nested query
+  // Al expandir por primera vez, carga items directamente de order_items
   useEffect(() => {
-    if (!expanded || items.length > 0 || fetchingItems) return;
+    if (!expanded || hasFetched.current) return;
+    hasFetched.current = true;
     setFetchingItems(true);
-    supabase
-      .from('order_items')
-      .select('*')
-      .eq('order_id', order.id)
-      .then(({ data }) => {
-        if (data && data.length > 0) setItems(data as OrderItemRow[]);
-        setFetchingItems(false);
-      });
-  }, [expanded, order.id, items.length, fetchingItems]);
+    fetchItemsByOrderId(order.id).then(({ data }) => {
+      setItems(data);
+      setFetchingItems(false);
+    });
+  }, [expanded, order.id]);
 
   const handleStartRoute = async () => {
     setLoading(true);
@@ -388,27 +385,25 @@ function AdminOrderCard({
   order: OrderWithItems;
   onStatusChange: (id: string, status: OrderStatus) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const [loading,  setLoading]  = useState(false);
-  const [items,    setItems]    = useState<OrderItemRow[]>(order.order_items ?? []);
+  const [expanded,      setExpanded]      = useState(false);
+  const [loading,       setLoading]       = useState(false);
+  const [items,         setItems]         = useState<OrderItemRow[]>([]);
   const [fetchingItems, setFetchingItems] = useState(false);
+  const hasFetched = useRef(false);
 
   const status = order.status as OrderStatus;
   const nextSt = NEXT_STATUS[status];
 
-  // Al expandir: si no hay items del nested query, hace fetch directo
+  // Al expandir por primera vez, carga items directamente de order_items
   useEffect(() => {
-    if (!expanded || items.length > 0 || fetchingItems) return;
+    if (!expanded || hasFetched.current) return;
+    hasFetched.current = true;
     setFetchingItems(true);
-    supabase
-      .from('order_items')
-      .select('*')
-      .eq('order_id', order.id)
-      .then(({ data }) => {
-        if (data && data.length > 0) setItems(data as OrderItemRow[]);
-        setFetchingItems(false);
-      });
-  }, [expanded, order.id, items.length, fetchingItems]);
+    fetchItemsByOrderId(order.id).then(({ data }) => {
+      setItems(data);
+      setFetchingItems(false);
+    });
+  }, [expanded, order.id]);
 
   const handleAdvance = async () => {
     if (!nextSt) return;

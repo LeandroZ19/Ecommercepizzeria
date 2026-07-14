@@ -299,13 +299,28 @@ export async function fetchUserOrders(): Promise<{ data: OrderWithItems[]; error
 
 // ─── Operaciones de administrador ─────────────────────────────────────────────
 
-/** Obtiene TODOS los pedidos (solo admin/delivery por RLS). */
+/** Obtiene TODOS los pedidos sin items anidados (solo admin/delivery por RLS).
+ *  Los items se cargan por separado con fetchItemsByOrderId para evitar
+ *  problemas con el nested select cuando la FK no está configurada. */
 export async function fetchAllOrders(): Promise<{ data: OrderWithItems[]; error: unknown }> {
   const { data, error } = await supabase
     .from('orders')
-    .select('*, order_items(*)')
+    .select('*')
     .order('created_at', { ascending: false });
-  return { data: (data ?? []) as OrderWithItems[], error };
+  const orders = (data ?? []).map(o => ({ ...o, order_items: [] })) as OrderWithItems[];
+  return { data: orders, error };
+}
+
+/** Obtiene los items de un pedido específico (admin ve todos por política RLS). */
+export async function fetchItemsByOrderId(
+  orderId: string,
+): Promise<{ data: OrderItemRow[]; error: unknown }> {
+  const { data, error } = await supabase
+    .from('order_items')
+    .select('*')
+    .eq('order_id', orderId)
+    .order('created_at', { ascending: true });
+  return { data: (data ?? []) as OrderItemRow[], error };
 }
 
 /** Cambia el estado de un pedido (admin/delivery). */
