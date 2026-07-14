@@ -11,70 +11,221 @@
 <style>
 :root{--ember:#ff5a36;--char:#1b1410;--cream:#f7efe3;}
 *{box-sizing:border-box;margin:0;padding:0;}
-html,body{width:100%;height:100%;overflow:hidden;background:transparent;font-family:'Poppins',sans-serif;}
-a-scene{position:fixed!important;top:0!important;left:0!important;width:100vw!important;height:100vh!important;z-index:1!important;}a-scene canvas{position:fixed!important;top:0!important;left:0!important;width:100vw!important;height:100vh!important;object-fit:cover!important;}
-body>video{position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;object-fit:cover!important;z-index:0!important;}
-#hud{position:fixed;inset:0;z-index:100;pointer-events:none;display:flex;flex-direction:column;}
-#topBar{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:linear-gradient(to bottom,rgba(27,20,16,.85),transparent);pointer-events:auto;}
-#brand{font-family:'Fredoka',sans-serif;font-weight:600;color:var(--cream);font-size:18px;line-height:1;}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Poppins',sans-serif;}
+
+/* ── Camera feed fills entire viewport ───────────────────────────────────── */
+video{position:fixed!important;top:0!important;left:0!important;
+  width:100vw!important;height:100vh!important;
+  min-width:100vw!important;min-height:100vh!important;
+  object-fit:cover!important;z-index:0!important;}
+a-scene{position:fixed!important;top:0!important;left:0!important;
+  width:100vw!important;height:100vh!important;z-index:1!important;background:transparent!important;}
+a-scene canvas{position:fixed!important;top:0!important;left:0!important;
+  width:100vw!important;height:100vh!important;display:block!important;}
+
+/* ── HUD overlay ─────────────────────────────────────────────────────────── */
+#hud{position:fixed;inset:0;z-index:100;pointer-events:none;
+  display:flex;flex-direction:column;align-items:stretch;}
+#topBar{display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px;background:linear-gradient(to bottom,rgba(27,20,16,.9),transparent);
+  pointer-events:auto;}
+#brand{font-family:'Fredoka',sans-serif;font-weight:600;color:var(--cream);font-size:20px;line-height:1;}
 #brand b{color:var(--ember);}
-#backBtn{background:rgba(27,20,16,0.7);color:var(--cream);border:1px solid rgba(255,90,54,.4);border-radius:999px;font-family:'Poppins',sans-serif;font-size:13px;padding:7px 16px;cursor:pointer;}
-#instructions{margin:auto 12px 70px;background:rgba(27,20,16,.9);border:1px solid rgba(255,90,54,.35);border-radius:14px;padding:12px 16px;backdrop-filter:blur(8px);pointer-events:none;text-align:center;max-width:420px;}
-#instructions h2{font-family:'Fredoka',sans-serif;font-size:18px;color:var(--ember);margin-bottom:6px;}
-#instructions p{font-size:13px;color:rgba(247,239,227,.8);line-height:1.5;}
-#instructions .steps{display:flex;flex-direction:column;gap:8px;margin-top:12px;text-align:left;}
-#instructions .step{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--cream);}
-#instructions .num{width:24px;height:24px;border-radius:50%;background:var(--ember);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Fredoka',sans-serif;font-size:13px;flex-shrink:0;}
-#pdName{margin:16px auto 0;font-family:'Fredoka',sans-serif;font-weight:600;color:var(--cream);font-size:22px;text-align:center;text-shadow:0 2px 12px rgba(0,0,0,.6);pointer-events:none;}
+#backBtn{background:rgba(27,20,16,.75);color:var(--cream);border:1px solid rgba(255,90,54,.45);
+  border-radius:999px;font-family:'Poppins',sans-serif;font-size:13px;padding:8px 18px;cursor:pointer;
+  backdrop-filter:blur(6px);}
+#pdName{text-align:center;font-family:'Fredoka',sans-serif;font-weight:600;color:var(--cream);
+  font-size:20px;padding:6px 16px;text-shadow:0 2px 14px rgba(0,0,0,.75);pointer-events:none;margin-top:6px;}
+#spacer{flex:1;}
+#instructions{margin:0 10px 20px;align-self:center;width:calc(100% - 20px);max-width:380px;
+  background:rgba(22,16,12,.93);border:1px solid rgba(255,90,54,.35);border-radius:18px;
+  padding:14px 16px 16px;backdrop-filter:blur(12px);pointer-events:none;}
+#instructions h2{font-family:'Fredoka',sans-serif;font-size:17px;color:var(--ember);margin-bottom:4px;text-align:center;}
+#instructions p{font-size:12px;color:rgba(247,239,227,.75);line-height:1.5;text-align:center;margin-bottom:10px;}
+.hiro-row{display:flex;justify-content:center;margin-bottom:10px;}
+.hiro-frame{width:90px;height:90px;border-radius:10px;overflow:hidden;border:2px solid rgba(255,90,54,.5);background:#fff;}
+.hiro-frame img{width:100%;height:100%;display:block;object-fit:contain;}
+.steps{display:flex;flex-direction:column;gap:7px;}
+.step{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--cream);}
+.num{width:22px;height:22px;border-radius:50%;background:var(--ember);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Fredoka',sans-serif;font-size:12px;flex-shrink:0;}
 </style>
 </head>
 <body>
-<a-scene embedded arjs="sourceType:webcam;debugUIEnabled:false;detectionMode:mono_and_matrix;matrixCodeType:3x3;" vr-mode-ui="enabled:false" renderer="logarithmicDepthBuffer:true;antialias:true" id="arScene">
-  <a-marker preset="hiro" id="hirolMarker">
-    <a-entity id="pizzaModel" position="0 0.05 0" rotation="-90 0 0" scale="0.8 0.8 0.8">
-      <a-cylinder radius="0.55" height="0.06" color="#e8c87a" material="roughness:0.9" position="0 0 0"></a-cylinder>
-      <a-torus radius="0.52" radius-tubular="0.06" color="#d4a832" material="roughness:0.8" rotation="90 0 0" position="0 0.02 0"></a-torus>
-      <a-cylinder radius="0.44" height="0.015" color="#c81d25" material="roughness:0.6" position="0 0.04 0"></a-cylinder>
-      <a-cylinder radius="0.36" height="0.012" color="#f5e6a0" material="roughness:0.5" position="0 0.055 0"></a-cylinder>
-      <a-sphere radius="0.12" color="#f5e6a0" material="roughness:0.5" position="0.18 0.05 0.12" scale="1 0.2 1"></a-sphere>
-      <a-sphere radius="0.10" color="#f5e6a0" material="roughness:0.5" position="-0.22 0.05 0.05" scale="1 0.2 1"></a-sphere>
-      <a-sphere radius="0.09" color="#f5e6a0" material="roughness:0.5" position="0.08 0.05 -0.25" scale="1 0.2 1"></a-sphere>
-      <a-cylinder radius="0.07" height="0.02" color="#9c2510" material="roughness:0.7" position="0.22 0.068 0.00"></a-cylinder>
-      <a-cylinder radius="0.07" height="0.02" color="#9c2510" material="roughness:0.7" position="-0.22 0.068 0.00"></a-cylinder>
-      <a-cylinder radius="0.07" height="0.02" color="#9c2510" material="roughness:0.7" position="0.00 0.068 0.22"></a-cylinder>
-      <a-cylinder radius="0.07" height="0.02" color="#9c2510" material="roughness:0.7" position="0.00 0.068 -0.22"></a-cylinder>
-      <a-cylinder radius="0.06" height="0.02" color="#9c2510" material="roughness:0.7" position="0.16 0.068 0.16"></a-cylinder>
-      <a-cylinder radius="0.06" height="0.02" color="#9c2510" material="roughness:0.7" position="-0.16 0.068 0.16"></a-cylinder>
-      <a-cylinder radius="0.06" height="0.02" color="#9c2510" material="roughness:0.7" position="-0.16 0.068 -0.16"></a-cylinder>
-      <a-sphere radius="0.04" color="#ffffff" material="opacity:0.25;transparent:true" position="0 0.15 0" animation="property:position;from:0 0.10 0;to:0 0.35 0;dir:normal;dur:2000;loop:true;easing:easeInOutSine"></a-sphere>
-      <a-box width="1.25" height="0.06" depth="1.25" color="#e3c98a" material="roughness:0.8" position="0 -0.06 0"></a-box>
-      <a-box width="1.25" height="0.06" depth="1.25" color="#d4b870" material="roughness:0.8" position="0 0.06 -0.55" rotation="-70 0 0"></a-box>
-      <a-text value="RapiPizza" align="center" color="#c81d25" font="exo2bold" width="2.5" position="0 0.01 0.55" rotation="90 0 0"></a-text>
+<a-scene embedded
+  arjs="sourceType:webcam;debugUIEnabled:false;detectionMode:mono_and_matrix;matrixCodeType:3x3;"
+  vr-mode-ui="enabled:false"
+  renderer="logarithmicDepthBuffer:true;antialias:true;alpha:true"
+  id="arScene">
+
+  <a-marker preset="hiro" id="hiroMarker">
+
+    <!-- ── Pizza principal ───────────────────────────────────────── -->
+    <a-entity id="pizzaModel" position="0 0.12 0" rotation="-90 0 0" scale="2.6 2.6 2.6">
+
+      <!-- Base de la pizza (masa gruesa color dorado) -->
+      <a-cylinder radius="0.56" height="0.07" color="#dfa84a"
+        material="roughness:0.95;metalness:0.0" position="0 0 0"></a-cylinder>
+
+      <!-- Borde de la corteza (crust ring) -->
+      <a-torus radius="0.53" radius-tubular="0.075" color="#b8762a"
+        material="roughness:0.98" rotation="90 0 0" position="0 0.01 0"></a-torus>
+
+      <!-- Salsa de tomate -->
+      <a-cylinder radius="0.455" height="0.02" color="#bb2015"
+        material="roughness:0.75" position="0 0.045 0"></a-cylinder>
+
+      <!-- Capa de mozzarella (base blanquecina) -->
+      <a-cylinder radius="0.39" height="0.016" color="#eddeb8"
+        material="roughness:0.55" position="0 0.062 0"></a-cylinder>
+
+      <!-- Blobs de mozzarella derretida -->
+      <a-sphere radius="0.135" color="#f0e2b2" material="roughness:0.45"
+        position="0.17 0.072 0.11" scale="1 0.24 1"></a-sphere>
+      <a-sphere radius="0.125" color="#f0e2b2" material="roughness:0.45"
+        position="-0.21 0.072 0.08" scale="1 0.24 1"></a-sphere>
+      <a-sphere radius="0.115" color="#f0e2b2" material="roughness:0.45"
+        position="0.07 0.072 -0.23" scale="1 0.24 1"></a-sphere>
+      <a-sphere radius="0.105" color="#f0e2b2" material="roughness:0.45"
+        position="-0.10 0.072 0.22" scale="1 0.24 1"></a-sphere>
+      <a-sphere radius="0.095" color="#f0e2b2" material="roughness:0.45"
+        position="0.26 0.072 -0.12" scale="1 0.24 1"></a-sphere>
+
+      <!-- Pepperoni (6 rodajas oscuras) -->
+      <a-cylinder radius="0.082" height="0.016" color="#7a1212"
+        material="roughness:0.65" position="0.22 0.082 0.04"></a-cylinder>
+      <a-cylinder radius="0.082" height="0.016" color="#851818"
+        material="roughness:0.65" position="-0.22 0.082 0.04"></a-cylinder>
+      <a-cylinder radius="0.082" height="0.016" color="#7a1212"
+        material="roughness:0.65" position="0.04 0.082 0.25"></a-cylinder>
+      <a-cylinder radius="0.075" height="0.016" color="#851818"
+        material="roughness:0.65" position="-0.09 0.082 -0.25"></a-cylinder>
+      <a-cylinder radius="0.075" height="0.016" color="#7a1212"
+        material="roughness:0.65" position="0.20 0.082 -0.19"></a-cylinder>
+      <a-cylinder radius="0.075" height="0.016" color="#851818"
+        material="roughness:0.65" position="-0.20 0.082 0.19"></a-cylinder>
+      <!-- Pepperoni central -->
+      <a-cylinder radius="0.068" height="0.016" color="#7a1212"
+        material="roughness:0.65" position="0.00 0.082 0.00"></a-cylinder>
+
+      <!-- Albahaca (hojas verdes) -->
+      <a-sphere radius="0.055" color="#267326"
+        material="roughness:0.7" position="0.28 0.078 0.13" scale="1.5 0.28 0.9"></a-sphere>
+      <a-sphere radius="0.050" color="#2a8a2a"
+        material="roughness:0.7" position="-0.14 0.078 0.30" scale="1.5 0.28 0.9"></a-sphere>
+      <a-sphere radius="0.045" color="#267326"
+        material="roughness:0.7" position="0.10 0.078 -0.31" scale="1.5 0.28 0.9"></a-sphere>
+
+      <!-- Texture bumps en la corteza -->
+      <a-sphere radius="0.032" color="#c8902e" material="roughness:0.95"
+        position="0.52 0.04 0.10"></a-sphere>
+      <a-sphere radius="0.030" color="#c8902e" material="roughness:0.95"
+        position="-0.52 0.04 0.10"></a-sphere>
+      <a-sphere radius="0.030" color="#c8902e" material="roughness:0.95"
+        position="0.10 0.04 0.52"></a-sphere>
+      <a-sphere radius="0.028" color="#c8902e" material="roughness:0.95"
+        position="-0.10 0.04 -0.50"></a-sphere>
+
+      <!-- Marca RapiPizza en la corteza inferior -->
+      <a-text value="RapiPizza" align="center" color="#c81d25"
+        font="exo2bold" width="2.4" position="0 0.01 0.50" rotation="90 0 0"></a-text>
+
     </a-entity>
-    <a-entity light="type:point;color:#ffcf6b;intensity:1.2;distance:3" position="0 0.8 0"></a-entity>
+
+    <!-- Iluminación para volumen 3D -->
+    <a-entity light="type:point;color:#ffdc80;intensity:1.6;distance:5" position="0 1.5 0.5"></a-entity>
+    <a-entity light="type:ambient;color:#fff8e8;intensity:0.7"></a-entity>
+
   </a-marker>
+
   <a-entity camera></a-entity>
 </a-scene>
+
+<!-- HUD -->
 <div id="hud">
   <div id="topBar">
     <div id="brand"><span>Rapi<b>Pizza</b> AR</span></div>
     <button id="backBtn" onclick="history.back()">&#8592; Volver</button>
   </div>
-  <div id="pdName">&#127829; Pizza en Realidad Aumentada</div>
+  <div id="pdName">🍕 Pizza en Realidad Aumentada</div>
+  <div id="spacer"></div>
   <div id="instructions">
     <h2>Cómo ver tu pizza en AR</h2>
-    <p>Imprime o muestra el marcador Hiro en pantalla y apunta tu cámara hacia él.</p>
+    <p>Muestra el marcador Hiro a la cámara y la pizza aparecerá en 3D.</p>
+    <div class="hiro-row">
+      <div class="hiro-frame">
+        <!-- Marcador Hiro en SVG inline (patrón oficial simplificado) -->
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="90" height="90">
+          <rect width="100" height="100" fill="white"/>
+          <rect x="5" y="5" width="90" height="90" fill="black"/>
+          <rect x="10" y="10" width="80" height="80" fill="white"/>
+          <!-- Patrón Hiro: franjas horizontales y verticales -->
+          <rect x="15" y="15" width="30" height="30" fill="black"/>
+          <rect x="55" y="15" width="30" height="30" fill="black"/>
+          <rect x="15" y="55" width="30" height="30" fill="black"/>
+          <rect x="55" y="55" width="30" height="30" fill="black"/>
+          <rect x="35" y="25" width="30" height="10" fill="black"/>
+          <rect x="35" y="65" width="30" height="10" fill="black"/>
+          <rect x="25" y="35" width="10" height="30" fill="black"/>
+          <rect x="65" y="35" width="10" height="30" fill="black"/>
+          <rect x="40" y="40" width="20" height="20" fill="black"/>
+        </svg>
+      </div>
+    </div>
     <div class="steps">
-      <div class="step"><div class="num">1</div><span>Busca "Hiro marker AR.js" en Google e imprímelo</span></div>
-      <div class="step"><div class="num">2</div><span>Apunta la cámara de tu celular al marcador</span></div>
-      <div class="step"><div class="num">3</div><span>La pizza aparecerá sobre la mesa en 3D &#127829;</span></div>
+      <div class="step"><div class="num">1</div><span>Muestra esta imagen o imprímela en papel</span></div>
+      <div class="step"><div class="num">2</div><span>Apunta tu cámara hacia el marcador Hiro</span></div>
+      <div class="step"><div class="num">3</div><span>La pizza aparecerá sobre él en 3D 🍕</span></div>
     </div>
   </div>
 </div>
+
 <script>
-const params=new URLSearchParams(location.search);
-const pName=params.get('product');
-if(pName){document.getElementById('pdName').textContent='&#127829; '+decodeURIComponent(pName)+' en AR';document.title='RapiPizza AR — '+decodeURIComponent(pName);}
+// Actualizar nombre del producto si viene por URL
+(function(){
+  var params = new URLSearchParams(location.search);
+  var pName = params.get('product');
+  if(pName){
+    document.getElementById('pdName').textContent = '\u{1F355} ' + decodeURIComponent(pName) + ' en AR';
+    document.title = 'RapiPizza AR — ' + decodeURIComponent(pName);
+  }
+})();
+
+// MutationObserver: forzar video a llenar pantalla cuando AR.js lo inyecte
+(function(){
+  function fixVideo(el){
+    el.style.cssText = [
+      'position:fixed!important',
+      'top:0!important','left:0!important',
+      'width:100vw!important','height:100vh!important',
+      'min-width:100vw!important','min-height:100vh!important',
+      'object-fit:cover!important','z-index:0!important',
+      'transform:none!important','margin:0!important'
+    ].join(';');
+    // Re-aplicar cada vez que el browser lo resetee
+    el.addEventListener('loadedmetadata', function(){ fixVideo(el); });
+  }
+
+  var obs = new MutationObserver(function(muts){
+    muts.forEach(function(m){
+      m.addedNodes.forEach(function(node){
+        if(node.nodeName === 'VIDEO') fixVideo(node);
+      });
+    });
+  });
+  obs.observe(document.body, {childList:true, subtree:true});
+
+  // Capturar videos ya existentes
+  document.querySelectorAll('video').forEach(fixVideo);
+  // Fallback: verificar en cada frame durante los primeros 5 segundos
+  var deadline = Date.now() + 5000;
+  function poll(){
+    document.querySelectorAll('video').forEach(fixVideo);
+    if(Date.now() < deadline) requestAnimationFrame(poll);
+  }
+  requestAnimationFrame(poll);
+})();
 </script>
 </body>
 </html>

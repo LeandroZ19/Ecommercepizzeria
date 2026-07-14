@@ -147,8 +147,13 @@ export default function Layout() {
 
             {/* Actions */}
             <div className="flex items-center gap-4">
-              {/* User — solo clientes y no autenticados */}
-              {!isAdminOrDelivery && (
+              {/* Nombre de cuenta — visible para todos los roles */}
+              {user && isAdminOrDelivery ? (
+                <div className="hidden md:flex items-center gap-2 opacity-90">
+                  <User className="w-5 h-5" />
+                  <span className="text-sm font-medium">{user.name}</span>
+                </div>
+              ) : !isAdminOrDelivery && (
                 <Link
                   to="/mi-cuenta"
                   className="hidden md:flex items-center gap-2 hover:text-accent transition-colors"

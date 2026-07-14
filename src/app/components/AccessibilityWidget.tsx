@@ -61,9 +61,22 @@ function applyState(s: A11yState) {
   const fontSizes = ['1rem', '1.125rem', '1.3rem'];
   root.style.setProperty('--a11y-font-size', fontSizes[s.fontSize]);
 
-  // Interlineado vía custom property
+  // Interlineado: inyectar/remover <style> para sobrescribir utilidades de Tailwind
   const lineHeights = ['1.5', '1.9', '2.4'];
-  root.style.setProperty('--a11y-line-height', lineHeights[s.lineHeight]);
+  const lhValue = lineHeights[s.lineHeight];
+  root.style.setProperty('--a11y-line-height', lhValue);
+
+  let lhStyle = document.getElementById('a11y-lh-override') as HTMLStyleElement | null;
+  if (s.lineHeight > 0) {
+    if (!lhStyle) {
+      lhStyle = document.createElement('style');
+      lhStyle.id = 'a11y-lh-override';
+      document.head.appendChild(lhStyle);
+    }
+    lhStyle.textContent = `* { line-height: ${lhValue} !important; }`;
+  } else {
+    lhStyle?.remove();
+  }
 
   // Clases de accesibilidad en el elemento raíz
   root.classList.toggle('a11y-contrast-high', s.contrast === 1);
