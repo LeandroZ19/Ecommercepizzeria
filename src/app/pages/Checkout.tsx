@@ -10,7 +10,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { createOrder, decrementProductStock } from '../../../utils/supabase/db';
+import { createOrder } from '../../../utils/supabase/db';
 import { generateBoletaPDF } from '../components/BoletaPDF';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -93,12 +93,8 @@ export default function Checkout() {
         console.error('[checkout] createOrder error:', orderErr);
       }
 
-      // Decrementar stock por cada producto (busca por nombre en la DB)
-      if (savedOrder) {
-        await Promise.all(
-          items.map(item => decrementProductStock(item.name, item.quantity))
-        );
-      }
+      // El stock se descuenta automáticamente vía trigger en order_items (migration 009).
+      // No llamar decrementProductStock desde aquí para evitar doble descuento.
 
       const confirmedOrderId = savedOrder?.id ?? crypto.randomUUID();
       const orderNumber      = savedOrder?.order_number ?? null;
