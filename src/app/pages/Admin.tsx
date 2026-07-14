@@ -1,29 +1,21 @@
-/**
- * Admin — Panel para roles admin y delivery con vistas diferenciadas.
- *
- * Admin:  Pedidos (todos los estados, avance completo, cancelar) + Inventario
- * Delivery: Solo sus entregas pendientes/en camino con "Empezar Ruta" y mapa
- */
-
 import { motion } from 'motion/react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
-import { fetchAllOrders, updateOrderStatus, fetchProductsWithStock, updateProductStock } from '../../../utils/supabase/db';
-import type { OrderWithItems, ProductRow } from '../../../utils/supabase/db';
+import { fetchAllOrders, updateOrderStatus } from '../../../utils/supabase/db';
+import type { OrderWithItems, OrderItemRow } from '../../../utils/supabase/db';
+import { supabase } from '../../../utils/supabase/client';
 import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import {
   Package, ChevronDown, ChevronUp, RefreshCw, Hash,
-  Boxes, Clock, CheckCircle, Truck, XCircle, MapPin, Navigation, LogOut,
+  Clock, CheckCircle, Truck, XCircle, MapPin, Navigation, LogOut, ShoppingBag,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-// ─── Constantes ───────────────────────────────────────────────────────────────
+// ─── Constantes ────────────────────────────────────────────────────────────────
 
-const STORE_COORDS: [number, number] = [-12.1628, -76.9443]; // Av. Sucre 112, VMT
+const STORE_COORDS: [number, number] = [-12.1628, -76.9443];
 
 type OrderStatus = 'pending' | 'preparing' | 'sent' | 'delivered' | 'cancelled';
 
@@ -43,19 +35,18 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
   cancelled: 'bg-red-100 text-red-800',
 };
 
-// ─── Mapa de ruta (Leaflet) ───────────────────────────────────────────────────
+// ─── Mapa de ruta (Leaflet) ────────────────────────────────────────────────────
 
 function RouteMap({ address, orderId }: { address: string; orderId: string }) {
   const mapRef  = useRef<HTMLDivElement>(null);
   const mapInst = useRef<unknown>(null);
-  const [error, setError] = useState('');
+  const [error, setError]     = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!document.getElementById('leaflet-css')) {
       const link = document.createElement('link');
-      link.id   = 'leaflet-css';
-      link.rel  = 'stylesheet';
+      link.id = 'leaflet-css'; link.rel = 'stylesheet';
       link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
       document.head.appendChild(link);
     }
@@ -94,7 +85,6 @@ function RouteMap({ address, orderId }: { address: string; orderId: string }) {
           attribution: '© OpenStreetMap',
         }).addTo(map);
 
-        // Marcador tienda
         const storeIcon = L.divIcon({
           html: '<div style="background:#e25216;width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,.5)"></div>',
           className: '', iconSize: [16, 16], iconAnchor: [8, 8],
@@ -102,7 +92,6 @@ function RouteMap({ address, orderId }: { address: string; orderId: string }) {
         L.marker(STORE_COORDS, { icon: storeIcon }).addTo(map)
           .bindPopup('<b>🍕 RapiPizza</b><br>Av. Sucre 112, VMT').openPopup();
 
-        // Marcador cliente
         const clientIcon = L.divIcon({
           html: '<div style="background:#1d4ed8;width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,.5)"></div>',
           className: '', iconSize: [16, 16], iconAnchor: [8, 8],
@@ -110,7 +99,6 @@ function RouteMap({ address, orderId }: { address: string; orderId: string }) {
         L.marker(clientCoords, { icon: clientIcon }).addTo(map)
           .bindPopup(`<b>📍 Cliente</b><br>${address}`);
 
-        // Línea de ruta
         L.polyline([STORE_COORDS, clientCoords], {
           color: '#e25216', weight: 4, dashArray: '8 5',
         }).addTo(map);
@@ -128,17 +116,11 @@ function RouteMap({ address, orderId }: { address: string; orderId: string }) {
     };
   }, [address, orderId]);
 
-  if (error) {
-    return (
-      <div className="h-52 bg-muted rounded-xl flex items-center justify-center text-sm text-muted-foreground">
-        {error}
-      </div>
-    );
-  }
+  if (error) return (
+    <div className="h-52 bg-muted rounded-xl flex items-center justify-center text-sm text-muted-foreground">{error}</div>
+  );
 
   return (
-    /* isolation:isolate creates a new stacking context so Leaflet controls
-       (z-index ~1000) don't escape and overlap the sticky navbar */
     <div style={{ isolation: 'isolate' }} className="relative">
       {loading && (
         <div className="absolute inset-0 bg-muted rounded-xl flex items-center justify-center z-10">
@@ -155,7 +137,7 @@ function RouteMap({ address, orderId }: { address: string; orderId: string }) {
   );
 }
 
-// ─── Tarjeta de entrega (DELIVERY) ───────────────────────────────────────────
+// ─── Tarjeta de entrega (DELIVERY) ─────────────────────────────────────────────
 
 function DeliveryCard({
   order,
@@ -164,11 +146,27 @@ function DeliveryCard({
   order: OrderWithItems;
   onStatusChange: (id: string, status: OrderStatus) => void;
 }) {
-  const [expanded,  setExpanded]  = useState(false);
-  const [showMap,   setShowMap]   = useState(false);
-  const [loading,   setLoading]   = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [showMap,  setShowMap]  = useState(false);
+  const [loading,  setLoading]  = useState(false);
+  const [items,    setItems]    = useState<OrderItemRow[]>(order.order_items ?? []);
+  const [fetchingItems, setFetchingItems] = useState(false);
 
   const status = order.status as OrderStatus;
+
+  // Lazy-load items when expanded and none came from the nested query
+  useEffect(() => {
+    if (!expanded || items.length > 0 || fetchingItems) return;
+    setFetchingItems(true);
+    supabase
+      .from('order_items')
+      .select('*')
+      .eq('order_id', order.id)
+      .then(({ data }) => {
+        if (data && data.length > 0) setItems(data as OrderItemRow[]);
+        setFetchingItems(false);
+      });
+  }, [expanded, order.id, items.length, fetchingItems]);
 
   const handleStartRoute = async () => {
     setLoading(true);
@@ -217,7 +215,6 @@ function DeliveryCard({
 
       {expanded && (
         <div className="px-4 pb-4 border-t border-border pt-4 space-y-4">
-          {/* Datos del cliente */}
           <div className="bg-muted/30 rounded-lg p-3 space-y-1.5">
             {order.customer_phone && (
               <p className="text-sm flex items-center gap-2">
@@ -229,7 +226,7 @@ function DeliveryCard({
             )}
             {order.address && (
               <p className="text-sm flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-muted-foreground" />
+                <MapPin className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                 <span>{order.address}</span>
               </p>
             )}
@@ -238,57 +235,49 @@ function DeliveryCard({
             </p>
           </div>
 
-          {/* Items del pedido */}
-          <div className="space-y-1.5">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Productos</p>
-            {order.order_items.map(item => (
-              <div key={item.id} className="flex justify-between text-sm">
-                <span className="text-muted-foreground">{item.product_name} <span className="font-medium text-foreground">×{item.quantity}</span></span>
-                <span>S/ {((item.subtotal ?? item.price * item.quantity)).toFixed(2)}</span>
+          {/* Productos del pedido */}
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Productos</p>
+            {fetchingItems ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                <span className="w-3 h-3 border border-primary border-t-transparent rounded-full animate-spin" />
+                Cargando productos...
               </div>
-            ))}
+            ) : items.length > 0 ? (
+              <div className="space-y-1.5">
+                {items.map(item => (
+                  <div key={item.id} className="flex justify-between text-sm">
+                    <span>{item.product_name} <span className="font-medium text-primary">×{item.quantity}</span></span>
+                    <span className="font-medium">S/ {(item.subtotal ?? item.price * item.quantity).toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground italic">Sin detalle de productos</p>
+            )}
           </div>
 
-          {/* Acciones */}
           <div className="flex gap-2 flex-wrap">
             {status === 'preparing' && (
-              <Button
-                onClick={handleStartRoute}
-                disabled={loading}
-                className="gap-2 flex-1"
-              >
-                {loading
-                  ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  : <Navigation className="w-4 h-4" />}
+              <Button onClick={handleStartRoute} disabled={loading} className="gap-2 flex-1">
+                {loading ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Navigation className="w-4 h-4" />}
                 Empezar Ruta
               </Button>
             )}
             {status === 'sent' && (
-              <Button
-                onClick={handleDeliver}
-                disabled={loading}
-                className="gap-2 flex-1 bg-green-600 hover:bg-green-700"
-              >
-                {loading
-                  ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  : <CheckCircle className="w-4 h-4" />}
+              <Button onClick={handleDeliver} disabled={loading} className="gap-2 flex-1 bg-green-600 hover:bg-green-700">
+                {loading ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                 Marcar Entregado
               </Button>
             )}
-            {/* Botón mapa disponible para todos los estados activos */}
             {order.address && (status === 'pending' || status === 'preparing' || status === 'sent') && (
-              <Button
-                variant="outline"
-                onClick={() => setShowMap(s => !s)}
-                className="gap-2"
-              >
+              <Button variant="outline" onClick={() => setShowMap(s => !s)} className="gap-2">
                 <MapPin className="w-4 h-4" />
                 {showMap ? 'Ocultar mapa' : 'Ver mapa'}
               </Button>
             )}
           </div>
 
-          {/* Mapa de ruta */}
           {showMap && order.address && (
             <RouteMap address={order.address} orderId={order.id} />
           )}
@@ -298,7 +287,7 @@ function DeliveryCard({
   );
 }
 
-// ─── Vista Delivery ───────────────────────────────────────────────────────────
+// ─── Panel de Delivery ─────────────────────────────────────────────────────────
 
 function DeliveryPanel({ orders, loading, onStatusChange, onRefresh }: {
   orders: OrderWithItems[];
@@ -306,17 +295,9 @@ function DeliveryPanel({ orders, loading, onStatusChange, onRefresh }: {
   onStatusChange: (id: string, status: OrderStatus) => void;
   onRefresh: () => void;
 }) {
-  // Todos los pedidos de delivery activos (cualquier estado antes de entregado)
-  const allDelivery = orders.filter(
-    o => o.delivery_type === 'delivery' && !['delivered', 'cancelled'].includes(o.status),
-  );
-  // Activos en ruta (preparando o enviados)
-  const activeOrders = allDelivery.filter(
-    o => o.status === 'preparing' || o.status === 'sent',
-  );
-  // Nuevos pendientes (aún no procesados por admin)
+  const allDelivery   = orders.filter(o => o.delivery_type === 'delivery' && !['delivered', 'cancelled'].includes(o.status));
   const pendingOrders = allDelivery.filter(o => o.status === 'pending');
-
+  const activeOrders  = allDelivery.filter(o => o.status === 'preparing' || o.status === 'sent');
   const completedToday = orders.filter(o => {
     const isToday = new Date(o.created_at).toDateString() === new Date().toDateString();
     return o.delivery_type === 'delivery' && o.status === 'delivered' && isToday;
@@ -324,7 +305,6 @@ function DeliveryPanel({ orders, loading, onStatusChange, onRefresh }: {
 
   return (
     <div className="space-y-6">
-      {/* Stats */}
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
           <Truck className="w-5 h-5 text-primary mb-2" />
@@ -341,8 +321,7 @@ function DeliveryPanel({ orders, loading, onStatusChange, onRefresh }: {
       <div className="flex items-center justify-between">
         <h2 className="font-display text-lg font-bold">Mis Entregas</h2>
         <Button variant="outline" size="sm" onClick={onRefresh} className="gap-2">
-          <RefreshCw className="w-3.5 h-3.5" />
-          Actualizar
+          <RefreshCw className="w-3.5 h-3.5" />Actualizar
         </Button>
       </div>
 
@@ -352,32 +331,23 @@ function DeliveryPanel({ orders, loading, onStatusChange, onRefresh }: {
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Pedidos nuevos (pending) */}
           {pendingOrders.length > 0 && (
             <div className="space-y-3">
               <p className="text-xs font-bold text-yellow-700 uppercase tracking-wide flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
                 Nuevos pedidos ({pendingOrders.length})
               </p>
-              {pendingOrders.map(order => (
-                <DeliveryCard key={order.id} order={order} onStatusChange={onStatusChange} />
-              ))}
+              {pendingOrders.map(order => <DeliveryCard key={order.id} order={order} onStatusChange={onStatusChange} />)}
             </div>
           )}
-
-          {/* Pedidos activos en ruta */}
           {activeOrders.length > 0 && (
             <div className="space-y-3">
               <p className="text-xs font-bold text-primary uppercase tracking-wide">
                 En preparación / En ruta ({activeOrders.length})
               </p>
-              {activeOrders.map(order => (
-                <DeliveryCard key={order.id} order={order} onStatusChange={onStatusChange} />
-              ))}
+              {activeOrders.map(order => <DeliveryCard key={order.id} order={order} onStatusChange={onStatusChange} />)}
             </div>
           )}
-
-          {/* Estado vacío */}
           {allDelivery.length === 0 && (
             <div className="bg-card rounded-xl p-12 text-center border border-border">
               <Truck className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
@@ -391,7 +361,7 @@ function DeliveryPanel({ orders, loading, onStatusChange, onRefresh }: {
   );
 }
 
-// ─── Tarjeta de pedido (ADMIN) ────────────────────────────────────────────────
+// ─── Tarjeta de pedido (ADMIN) ─────────────────────────────────────────────────
 
 const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
   pending:   'preparing',
@@ -420,9 +390,25 @@ function AdminOrderCard({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [loading,  setLoading]  = useState(false);
+  const [items,    setItems]    = useState<OrderItemRow[]>(order.order_items ?? []);
+  const [fetchingItems, setFetchingItems] = useState(false);
 
-  const status  = order.status as OrderStatus;
-  const nextSt  = NEXT_STATUS[status];
+  const status = order.status as OrderStatus;
+  const nextSt = NEXT_STATUS[status];
+
+  // Al expandir: si no hay items del nested query, hace fetch directo
+  useEffect(() => {
+    if (!expanded || items.length > 0 || fetchingItems) return;
+    setFetchingItems(true);
+    supabase
+      .from('order_items')
+      .select('*')
+      .eq('order_id', order.id)
+      .then(({ data }) => {
+        if (data && data.length > 0) setItems(data as OrderItemRow[]);
+        setFetchingItems(false);
+      });
+  }, [expanded, order.id, items.length, fetchingItems]);
 
   const handleAdvance = async () => {
     if (!nextSt) return;
@@ -471,19 +457,54 @@ function AdminOrderCard({
       </div>
 
       {expanded && (
-        <div className="px-4 pb-4 border-t border-border pt-4 space-y-4">
-          <div className="space-y-1.5">
-            {order.order_items.map(item => (
-              <div key={item.id} className="flex justify-between text-sm">
-                <span className="text-muted-foreground">{item.product_name} <span className="font-medium text-foreground">×{item.quantity}</span></span>
-                <span>S/ {((item.subtotal ?? item.price * item.quantity)).toFixed(2)}</span>
-              </div>
-            ))}
-          </div>
-          {order.address && <p className="text-xs text-muted-foreground">📍 {order.address}</p>}
-          {order.customer_phone && <p className="text-xs text-muted-foreground">📞 {order.customer_phone}</p>}
+        <div className="px-4 pb-4 border-t border-border pt-4 space-y-3">
 
-          <div className="flex gap-2 flex-wrap">
+          {/* Productos */}
+          <div className="bg-muted/30 rounded-lg p-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+              <ShoppingBag className="w-3.5 h-3.5" /> Productos pedidos
+            </p>
+            {fetchingItems ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground py-1">
+                <span className="w-3 h-3 border border-primary border-t-transparent rounded-full animate-spin" />
+                Cargando...
+              </div>
+            ) : items.length > 0 ? (
+              <div className="space-y-1.5">
+                {items.map(item => (
+                  <div key={item.id} className="flex justify-between text-sm">
+                    <span className="text-foreground font-medium">{item.product_name}</span>
+                    <div className="flex items-center gap-3 text-muted-foreground">
+                      <span>×{item.quantity}</span>
+                      <span className="font-semibold text-foreground">
+                        S/ {(item.subtotal ?? item.price * item.quantity).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                <div className="border-t border-border pt-1.5 mt-1.5 flex justify-between text-xs font-semibold">
+                  <span className="text-muted-foreground">Total</span>
+                  <span className="text-primary">S/ {order.total.toFixed(2)}</span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground italic">
+                Sin detalle · ejecuta migration 012 en Supabase para ver productos
+              </p>
+            )}
+          </div>
+
+          {/* Info cliente */}
+          <div className="text-xs text-muted-foreground space-y-1">
+            {order.address && <p>📍 {order.address}</p>}
+            {order.customer_phone && <p>📞 {order.customer_phone}</p>}
+            {order.payment_method && (
+              <p>💳 {order.payment_method === 'card' ? 'Tarjeta' : 'Efectivo'}</p>
+            )}
+          </div>
+
+          {/* Acciones */}
+          <div className="flex gap-2 flex-wrap pt-1">
             {nextSt && (
               <Button size="sm" onClick={handleAdvance} disabled={loading} className="gap-1.5">
                 {loading
@@ -506,20 +527,16 @@ function AdminOrderCard({
   );
 }
 
-// ─── Página Admin ─────────────────────────────────────────────────────────────
+// ─── Página Admin ──────────────────────────────────────────────────────────────
 
 export default function Admin() {
-  const { user, logout }  = useAuth();
-  const navigate  = useNavigate();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const isAdmin   = user?.role === 'admin';
   const isAllowed = user?.role === 'admin' || user?.role === 'delivery';
 
-  const [orders,    setOrders]    = useState<OrderWithItems[]>([]);
-  const [products,  setProducts]  = useState<ProductRow[]>([]);
-  const [loadingO,  setLoadingO]  = useState(true);
-  const [loadingP,  setLoadingP]  = useState(false);
-  const [stockEdits, setStockEdits] = useState<Record<string, string>>({});
-  const [activeTab, setActiveTab] = useState('orders');
+  const [orders,   setOrders]   = useState<OrderWithItems[]>([]);
+  const [loadingO, setLoadingO] = useState(true);
 
   useEffect(() => {
     if (user && !isAllowed) navigate('/');
@@ -533,19 +550,6 @@ export default function Admin() {
     setLoadingO(false);
   }, []);
 
-  const loadProducts = useCallback(async () => {
-    setLoadingP(true);
-    const { data, error } = await fetchProductsWithStock();
-    if (error) { toast.error('Error al cargar productos'); }
-    else {
-      setProducts(data);
-      const init: Record<string, string> = {};
-      data.forEach(p => { init[p.id] = String(p.stock); });
-      setStockEdits(init);
-    }
-    setLoadingP(false);
-  }, []);
-
   useEffect(() => { loadOrders(); }, [loadOrders]);
 
   const handleStatusChange = async (orderId: string, status: OrderStatus) => {
@@ -553,25 +557,14 @@ export default function Admin() {
     if (error) {
       toast.error('Error al actualizar estado');
     } else {
-      toast.success(`Estado: ${STATUS_LABELS[status]}`);
+      toast.success(`Estado actualizado: ${STATUS_LABELS[status]}`);
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
-    }
-  };
-
-  const handleStockSave = async (productId: string) => {
-    const newStock = parseInt(stockEdits[productId] ?? '0', 10);
-    if (isNaN(newStock) || newStock < 0) { toast.error('Stock inválido'); return; }
-    const { error } = await updateProductStock(productId, newStock);
-    if (error) toast.error('Error al actualizar stock');
-    else {
-      toast.success('Stock actualizado');
-      setProducts(prev => prev.map(p => p.id === productId ? { ...p, stock: newStock } : p));
     }
   };
 
   if (!user) return null;
 
-  // ── Vista DELIVERY ────────────────────────────────────────────────────────────
+  // ── Vista DELIVERY ──────────────────────────────────────────────────────────
 
   if (!isAdmin) {
     return (
@@ -602,17 +595,17 @@ export default function Admin() {
     );
   }
 
-  // ── Vista ADMIN ────────────────────────────────────────────────────────────
+  // ── Vista ADMIN ─────────────────────────────────────────────────────────────
 
-  const today         = new Date().toDateString();
-  const todayOrders   = orders.filter(o => new Date(o.created_at).toDateString() === today);
-  const pending       = orders.filter(o => o.status === 'pending').length;
-  const preparing     = orders.filter(o => o.status === 'preparing').length;
-  const lowStock      = products.filter(p => p.stock <= 10).length;
+  const today       = new Date().toDateString();
+  const todayOrders = orders.filter(o => new Date(o.created_at).toDateString() === today);
+  const pending     = orders.filter(o => o.status === 'pending').length;
+  const preparing   = orders.filter(o => o.status === 'preparing').length;
+  const inRoute     = orders.filter(o => o.status === 'sent').length;
 
   return (
     <div className="py-8 md:py-12">
-      <div className="container mx-auto px-4 max-w-6xl">
+      <div className="container mx-auto px-4 max-w-5xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -623,7 +616,7 @@ export default function Admin() {
             <p className="text-muted-foreground text-sm">Administrador — {user.name}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => { loadOrders(); if (activeTab === 'inventory') loadProducts(); }} className="gap-2">
+            <Button variant="outline" onClick={loadOrders} className="gap-2">
               <RefreshCw className="w-4 h-4" />Actualizar
             </Button>
             <Button variant="outline" onClick={() => logout()} className="gap-2">
@@ -635,10 +628,10 @@ export default function Admin() {
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {[
-            { label: 'Pedidos Hoy',     value: todayOrders.length, icon: Package,   color: 'text-primary' },
-            { label: 'Pendientes',      value: pending,            icon: Clock,     color: 'text-yellow-600' },
-            { label: 'En Preparación',  value: preparing,          icon: RefreshCw, color: 'text-blue-600' },
-            { label: 'Stock Bajo',      value: lowStock,           icon: Boxes,     color: 'text-red-600' },
+            { label: 'Pedidos Hoy',    value: todayOrders.length, icon: Package,   color: 'text-primary' },
+            { label: 'Pendientes',     value: pending,            icon: Clock,     color: 'text-yellow-600' },
+            { label: 'En Preparación', value: preparing,          icon: RefreshCw, color: 'text-blue-600' },
+            { label: 'En Ruta',        value: inRoute,            icon: Truck,     color: 'text-indigo-600' },
           ].map(({ label, value, icon: Icon, color }) => (
             <div key={label} className="bg-card rounded-xl p-4 border border-border shadow-sm">
               <Icon className={`w-5 h-5 ${color} mb-2`} />
@@ -648,88 +641,23 @@ export default function Admin() {
           ))}
         </div>
 
-        <Tabs defaultValue="orders" onValueChange={v => { setActiveTab(v); if (v === 'inventory') loadProducts(); }}>
-          <TabsList className="mb-6">
-            <TabsTrigger value="orders" className="gap-2">
-              <Package className="w-4 h-4" />Pedidos
-            </TabsTrigger>
-            <TabsTrigger value="inventory" className="gap-2">
-              <Boxes className="w-4 h-4" />Inventario
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="orders">
-            {loadingO ? (
-              <div className="flex items-center justify-center py-16">
-                <span className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-              </div>
-            ) : orders.length === 0 ? (
-              <div className="bg-card rounded-xl p-12 text-center border border-border">
-                <Package className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                <p className="text-lg font-semibold">No hay pedidos aún</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {orders.map(order => (
-                  <AdminOrderCard key={order.id} order={order} onStatusChange={handleStatusChange} />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="inventory">
-            {loadingP ? (
-              <div className="flex items-center justify-center py-16">
-                <span className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-              </div>
-            ) : (
-              <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-muted/50 border-b border-border">
-                      <th className="text-left p-4 font-semibold">Producto</th>
-                      <th className="text-left p-4 font-semibold hidden md:table-cell">Categoría</th>
-                      <th className="text-center p-4 font-semibold">Stock</th>
-                      <th className="text-center p-4 font-semibold">Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {products.map((product, i) => {
-                      const s    = parseInt(stockEdits[product.id] ?? String(product.stock), 10);
-                      const col  = s === 0 ? 'text-red-600' : s <= 10 ? 'text-orange-500' : 'text-green-600';
-                      return (
-                        <tr key={product.id} className={`border-b border-border last:border-0 ${i % 2 === 0 ? '' : 'bg-muted/20'}`}>
-                          <td className="p-4">
-                            <div className="flex items-center gap-3">
-                              {product.image && <img src={product.image} alt={product.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />}
-                              <span className="font-medium line-clamp-2">{product.name}</span>
-                            </div>
-                          </td>
-                          <td className="p-4 hidden md:table-cell text-muted-foreground capitalize">{product.category ?? '—'}</td>
-                          <td className="p-4">
-                            <div className="flex justify-center">
-                              <Input
-                                type="number" min="0"
-                                value={stockEdits[product.id] ?? String(product.stock)}
-                                onChange={e => setStockEdits(prev => ({ ...prev, [product.id]: e.target.value }))}
-                                className={`w-20 text-center font-bold ${col}`}
-                              />
-                            </div>
-                          </td>
-                          <td className="p-4 text-center">
-                            <Button size="sm" variant="outline" onClick={() => handleStockSave(product.id)}>
-                              Guardar
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
+        {/* Lista de pedidos */}
+        {loadingO ? (
+          <div className="flex items-center justify-center py-16">
+            <span className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : orders.length === 0 ? (
+          <div className="bg-card rounded-xl p-12 text-center border border-border">
+            <Package className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+            <p className="text-lg font-semibold">No hay pedidos aún</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {orders.map(order => (
+              <AdminOrderCard key={order.id} order={order} onStatusChange={handleStatusChange} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
