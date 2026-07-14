@@ -211,9 +211,7 @@ export async function upsertProfile(
 export async function createOrder(
   input: CreateOrderInput,
 ): Promise<{ data: OrderRow | null; error: unknown }> {
-  // Usar RPC create_order_with_items (SECURITY DEFINER) como método principal.
-  // Esta función crea orden + items en una sola transacción atómica, bypassando RLS.
-  // Requiere haber ejecutado migration 014_create_order_rpc.sql en Supabase.
+  // Intento 1: RPC atómica que crea orden + items juntos (migration 015)
   const itemsPayload = input.items.map(item => ({
     product_id:    item.productId ?? item.productName,
     product_name:  item.productName,
@@ -240,13 +238,10 @@ export async function createOrder(
   });
 
   if (!rpcErr && rpcData) {
-    // RPC exitoso — retornar orden creada
     return { data: rpcData as OrderRow, error: null };
   }
 
-  // Fallback: INSERT directo si la función RPC no existe aún (antes de migration 014)
-  console.warn('[db] create_order_with_items RPC failed:', rpcErr, '— using direct insert fallback');
-
+  // Intento 2: INSERT solo la orden (items se guardan por separado con saveOrderItems)
   const { data: orderRow, error: orderErr } = await supabase
     .from('orders')
     .insert({
@@ -271,34 +266,47 @@ export async function createOrder(
     return { data: null, error: orderErr ?? new Error('Order insert returned no data') };
   }
 
-  // Insertar items — tres intentos en cascada para máxima robustez
-  if (input.items.length > 0) {
-    const rows = input.items.map(item => ({
-      order_id:      orderRow.id,
-      product_id:    item.productId ?? item.productName,
-      product_name:  item.productName,
-      product_image: item.productImage ?? null,
-      price:         item.price,
-      quantity:      item.quantity,
-      subtotal:      item.price * item.quantity,
-      variant_name:  item.variantName ?? null,
-    }));
+  return { data: orderRow as OrderRow, error: null };
+}
 
-    // Intento 1: insert_order_items RPC (SECURITY DEFINER de migration 012 — bypasa RLS)
-    const { error: rpcItemsErr } = await supabase.rpc('insert_order_items', { p_items: rows });
+/**
+ * Guarda los productos en order_items.
+ * Se llama desde Checkout justo después de createOrder,
+ * igual que createCustomPizza se llama después de addToCart.
+ */
+export async function saveOrderItems(
+  orderId: string,
+  items: CreateOrderInput['items'],
+): Promise<{ error: unknown }> {
+  if (!items.length) return { error: null };
 
-    if (rpcItemsErr) {
-      console.warn('[db] insert_order_items RPC failed:', rpcItemsErr.message, '— trying direct insert');
+  const rows = items.map(item => ({
+    order_id:      orderId,
+    product_id:    item.productId ?? item.productName,
+    product_name:  item.productName,
+    product_image: item.productImage ?? null,
+    price:         item.price,
+    quantity:      item.quantity,
+    subtotal:      item.price * item.quantity,
+    variant_name:  item.variantName ?? null,
+  }));
 
-      // Intento 2: INSERT directo (funciona si RLS está configurado correctamente)
-      const { error: directErr } = await supabase.from('order_items').insert(rows);
-      if (directErr) {
-        console.error('[db] direct order_items insert also failed:', directErr.message, directErr);
-      }
+  // Intento 1: insert_order_items RPC — SECURITY DEFINER, bypasa RLS (migration 012)
+  const { error: rpcErr } = await supabase.rpc('insert_order_items', { p_items: rows });
+  if (!rpcErr) return { error: null };
+
+  console.warn('[saveOrderItems] RPC falló:', (rpcErr as { message?: string })?.message);
+
+  // Intento 2: INSERT directo item por item
+  for (const row of rows) {
+    const { error } = await supabase.from('order_items').insert(row);
+    if (error) {
+      console.error('[saveOrderItems] INSERT falló:', error.message, '| producto:', row.product_name);
+      return { error };
     }
   }
 
-  return { data: orderRow as OrderRow, error: null };
+  return { error: null };
 }
 
 export async function fetchUserOrders(): Promise<{ data: OrderWithItems[]; error: unknown }> {

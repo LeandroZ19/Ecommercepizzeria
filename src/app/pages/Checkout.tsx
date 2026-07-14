@@ -10,7 +10,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { createOrder, decrementProductStock } from '../../../utils/supabase/db';
+import { createOrder, saveOrderItems, decrementProductStock } from '../../../utils/supabase/db';
 import { generateBoletaPDF } from '../components/BoletaPDF';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -98,6 +98,18 @@ export default function Checkout() {
 
       const confirmedOrderId = savedOrder.id;
       const orderNumber      = savedOrder.order_number ?? null;
+
+      // Guardar productos en order_items — igual que createCustomPizza guarda en custom_pizzas
+      await saveOrderItems(
+        confirmedOrderId,
+        items.map(item => ({
+          productId:    item.id,
+          productName:  item.name,
+          productImage: item.image ?? null,
+          price:        item.price,
+          quantity:     item.quantity,
+        })),
+      );
 
       // Decrementar stock por nombre (fallback si el trigger DB no está creado aún)
       await Promise.allSettled(
