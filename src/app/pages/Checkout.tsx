@@ -99,17 +99,19 @@ export default function Checkout() {
       const confirmedOrderId = savedOrder.id;
       const orderNumber      = savedOrder.order_number ?? null;
 
-      // Guardar productos en order_items — igual que createCustomPizza guarda en custom_pizzas
-      await saveOrderItems(
-        confirmedOrderId,
-        items.map(item => ({
-          productId:    item.id,
-          productName:  item.name,
-          productImage: item.image ?? null,
-          price:        item.price,
-          quantity:     item.quantity,
-        })),
-      );
+      // Guardar productos en order_items
+      const cartItemsPayload = items.map(item => ({
+        productId:    item.id,
+        productName:  item.name,
+        productImage: item.image ?? null,
+        price:        item.price,
+        quantity:     item.quantity,
+      }));
+      const { error: itemsErr } = await saveOrderItems(confirmedOrderId, cartItemsPayload);
+      if (itemsErr) {
+        console.error('[checkout] saveOrderItems error:', itemsErr);
+        toast.warning('Pedido creado, pero no se guardaron los productos. Ejecuta migration 016 en Supabase.');
+      }
 
       // Decrementar stock por nombre (fallback si el trigger DB no está creado aún)
       await Promise.allSettled(
