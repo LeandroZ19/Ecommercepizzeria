@@ -211,37 +211,8 @@ export async function upsertProfile(
 export async function createOrder(
   input: CreateOrderInput,
 ): Promise<{ data: OrderRow | null; error: unknown }> {
-  // Intento 1: RPC atómica que crea orden + items juntos (migration 015)
-  const itemsPayload = input.items.map(item => ({
-    product_id:    item.productId ?? item.productName,
-    product_name:  item.productName,
-    product_image: item.productImage ?? null,
-    price:         item.price,
-    quantity:      item.quantity,
-    variant_name:  item.variantName ?? null,
-  }));
-
-  const { data: rpcData, error: rpcErr } = await supabase.rpc('create_order_with_items', {
-    p_user_id:        input.userId,
-    p_items:          itemsPayload,
-    p_total:          input.total,
-    p_subtotal:       input.subtotal,
-    p_discount:       input.discount,
-    p_delivery_fee:   input.deliveryFee,
-    p_district:       input.district       || '',
-    p_delivery_type:  input.deliveryType,
-    p_payment_method: input.paymentMethod,
-    p_address:        input.address        || '',
-    p_coupon_code:    input.couponCode     || '',
-    p_customer_name:  input.customerName   || '',
-    p_customer_phone: input.customerPhone  || '',
-  });
-
-  if (!rpcErr && rpcData) {
-    return { data: rpcData as OrderRow, error: null };
-  }
-
-  // Intento 2: INSERT solo la orden (items se guardan por separado con saveOrderItems)
+  // INSERT directo de la orden — simple y confiable.
+  // Los items se guardan por separado con saveOrderItems (igual que custom pizza).
   const { data: orderRow, error: orderErr } = await supabase
     .from('orders')
     .insert({
@@ -270,47 +241,32 @@ export async function createOrder(
 }
 
 /**
- * Guarda los productos en order_items.
- * Se llama desde Checkout justo después de createOrder,
- * igual que createCustomPizza se llama después de addToCart.
+ * Guarda los productos en order_items usando insert_order_items SECURITY DEFINER.
+ * Exactamente igual al patrón de createCustomPizza: llamada separada después de crear la orden.
  */
 export async function saveOrderItems(
   orderId: string,
   items: CreateOrderInput['items'],
-): Promise<{ error: unknown }> {
+): Promise<{ error: string | null }> {
   if (!items.length) return { error: null };
 
-  // Columnas base que SIEMPRE existen (schema original migration 001)
-  const baseRows = items.map(item => ({
+  const rows = items.map(item => ({
     order_id:      orderId,
-    product_id:    item.productId ?? item.productName,
     product_name:  item.productName,
     product_image: item.productImage ?? null,
     price:         item.price,
     quantity:      item.quantity,
+    subtotal:      item.price * item.quantity,
+    variant_name:  item.variantName ?? null,
   }));
 
-  // Payload extendido para RPC que incluye subtotal (añadido por migration 012)
-  const fullRows = baseRows.map((row, i) => ({
-    ...row,
-    subtotal:     items[i].price * items[i].quantity,
-    variant_name: items[i].variantName ?? null,
-  }));
+  // Usar insert_order_items RPC (SECURITY DEFINER — bypasa RLS, migration 017)
+  const { error } = await supabase.rpc('insert_order_items', { p_items: rows });
 
-  // Intento 1: insert_order_items RPC — SECURITY DEFINER, bypasa RLS (migration 012)
-  const { error: rpcErr } = await supabase.rpc('insert_order_items', { p_items: fullRows });
-  if (!rpcErr) return { error: null };
-
-  console.warn('[saveOrderItems] RPC falló:', (rpcErr as { message?: string })?.message);
-
-  // Intento 2: INSERT directo usando solo columnas originales (sin subtotal/variant_name)
-  // Esto funciona incluso si migration 012 no se ejecutó
-  for (const row of baseRows) {
-    const { error } = await supabase.from('order_items').insert(row);
-    if (error) {
-      console.error('[saveOrderItems] INSERT falló:', error.message, '| producto:', row.product_name);
-      return { error };
-    }
+  if (error) {
+    const msg = (error as { message?: string })?.message ?? String(error);
+    console.error('[saveOrderItems] Error:', msg);
+    return { error: msg };
   }
 
   return { error: null };

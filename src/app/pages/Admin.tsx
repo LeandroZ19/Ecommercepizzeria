@@ -2,13 +2,18 @@ import { motion } from 'motion/react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
-import { fetchAllOrders, fetchItemsByOrderId, updateOrderStatus } from '../../../utils/supabase/db';
-import type { OrderWithItems, OrderItemRow } from '../../../utils/supabase/db';
+import {
+  fetchAllOrders, fetchItemsByOrderId, updateOrderStatus,
+  fetchProductsWithStock, updateProductStock,
+} from '../../../utils/supabase/db';
+import type { OrderWithItems, OrderItemRow, ProductRow } from '../../../utils/supabase/db';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
+import { Input } from '../components/ui/input';
 import {
   Package, ChevronDown, ChevronUp, RefreshCw, Hash,
   Clock, CheckCircle, Truck, XCircle, MapPin, Navigation, LogOut, ShoppingBag,
+  Boxes, Search, AlertTriangle, TrendingDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -530,8 +535,14 @@ export default function Admin() {
   const isAdmin   = user?.role === 'admin';
   const isAllowed = user?.role === 'admin' || user?.role === 'delivery';
 
-  const [orders,   setOrders]   = useState<OrderWithItems[]>([]);
-  const [loadingO, setLoadingO] = useState(true);
+  const [orders,    setOrders]    = useState<OrderWithItems[]>([]);
+  const [loadingO,  setLoadingO]  = useState(true);
+  const [activeTab, setActiveTab] = useState<'pedidos' | 'inventario'>('pedidos');
+  const [products,  setProducts]  = useState<ProductRow[]>([]);
+  const [loadingP,  setLoadingP]  = useState(false);
+  const [stockEdit, setStockEdit] = useState<Record<string, string>>({});
+  const [savingStock, setSavingStock] = useState<Record<string, boolean>>({});
+  const [searchProd, setSearchProd]   = useState('');
 
   useEffect(() => {
     if (user && !isAllowed) navigate('/');
@@ -545,7 +556,38 @@ export default function Admin() {
     setLoadingO(false);
   }, []);
 
+  const loadInventory = useCallback(async () => {
+    setLoadingP(true);
+    const { data, error } = await fetchProductsWithStock();
+    if (error) toast.error('Error al cargar inventario');
+    else setProducts(data);
+    setLoadingP(false);
+  }, []);
+
   useEffect(() => { loadOrders(); }, [loadOrders]);
+
+  useEffect(() => {
+    if (activeTab === 'inventario' && isAdmin) loadInventory();
+  }, [activeTab, isAdmin, loadInventory]);
+
+  const handleStockSave = async (productId: string) => {
+    const raw = stockEdit[productId];
+    const newStock = parseInt(raw, 10);
+    if (isNaN(newStock) || newStock < 0) {
+      toast.error('Ingresa un número válido');
+      return;
+    }
+    setSavingStock(prev => ({ ...prev, [productId]: true }));
+    const { error } = await updateProductStock(productId, newStock);
+    setSavingStock(prev => ({ ...prev, [productId]: false }));
+    if (error) {
+      toast.error('Error al actualizar stock');
+    } else {
+      setProducts(prev => prev.map(p => p.id === productId ? { ...p, stock: newStock } : p));
+      setStockEdit(prev => { const n = { ...prev }; delete n[productId]; return n; });
+      toast.success('Stock actualizado');
+    }
+  };
 
   const handleStatusChange = async (orderId: string, status: OrderStatus) => {
     const { error } = await updateOrderStatus(orderId, status);
@@ -598,6 +640,14 @@ export default function Admin() {
   const preparing   = orders.filter(o => o.status === 'preparing').length;
   const inRoute     = orders.filter(o => o.status === 'sent').length;
 
+  const filteredProducts = products.filter(p =>
+    p.name.toLowerCase().includes(searchProd.toLowerCase()) ||
+    (p.category ?? '').toLowerCase().includes(searchProd.toLowerCase()),
+  );
+
+  const lowStock  = products.filter(p => p.stock <= 5 && p.stock > 0).length;
+  const outOfStock = products.filter(p => p.stock === 0).length;
+
   return (
     <div className="py-8 md:py-12">
       <div className="container mx-auto px-4 max-w-5xl">
@@ -611,7 +661,11 @@ export default function Admin() {
             <p className="text-muted-foreground text-sm">Administrador — {user.name}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={loadOrders} className="gap-2">
+            <Button
+              variant="outline"
+              onClick={activeTab === 'pedidos' ? loadOrders : loadInventory}
+              className="gap-2"
+            >
               <RefreshCw className="w-4 h-4" />Actualizar
             </Button>
             <Button variant="outline" onClick={() => logout()} className="gap-2">
@@ -623,10 +677,10 @@ export default function Admin() {
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {[
-            { label: 'Pedidos Hoy',    value: todayOrders.length, icon: Package,   color: 'text-primary' },
-            { label: 'Pendientes',     value: pending,            icon: Clock,     color: 'text-yellow-600' },
-            { label: 'En Preparación', value: preparing,          icon: RefreshCw, color: 'text-blue-600' },
-            { label: 'En Ruta',        value: inRoute,            icon: Truck,     color: 'text-indigo-600' },
+            { label: 'Pedidos Hoy',    value: todayOrders.length, icon: Package,       color: 'text-primary' },
+            { label: 'Pendientes',     value: pending,            icon: Clock,         color: 'text-yellow-600' },
+            { label: 'En Preparación', value: preparing,          icon: RefreshCw,     color: 'text-blue-600' },
+            { label: 'En Ruta',        value: inRoute,            icon: Truck,         color: 'text-indigo-600' },
           ].map(({ label, value, icon: Icon, color }) => (
             <div key={label} className="bg-card rounded-xl p-4 border border-border shadow-sm">
               <Icon className={`w-5 h-5 ${color} mb-2`} />
@@ -636,21 +690,191 @@ export default function Admin() {
           ))}
         </div>
 
-        {/* Lista de pedidos */}
-        {loadingO ? (
-          <div className="flex items-center justify-center py-16">
-            <span className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : orders.length === 0 ? (
-          <div className="bg-card rounded-xl p-12 text-center border border-border">
-            <Package className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-            <p className="text-lg font-semibold">No hay pedidos aún</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {orders.map(order => (
-              <AdminOrderCard key={order.id} order={order} onStatusChange={handleStatusChange} />
-            ))}
+        {/* Tabs */}
+        <div className="flex gap-1 p-1 bg-muted rounded-xl mb-6 w-fit">
+          <button
+            onClick={() => setActiveTab('pedidos')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeTab === 'pedidos'
+                ? 'bg-card shadow-sm text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <ShoppingBag className="w-4 h-4" />
+            Pedidos
+          </button>
+          <button
+            onClick={() => setActiveTab('inventario')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeTab === 'inventario'
+                ? 'bg-card shadow-sm text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Boxes className="w-4 h-4" />
+            Inventario
+            {outOfStock > 0 && (
+              <span className="bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 leading-none">
+                {outOfStock}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* ── TAB: Pedidos ── */}
+        {activeTab === 'pedidos' && (
+          loadingO ? (
+            <div className="flex items-center justify-center py-16">
+              <span className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : orders.length === 0 ? (
+            <div className="bg-card rounded-xl p-12 text-center border border-border">
+              <Package className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+              <p className="text-lg font-semibold">No hay pedidos aún</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {orders.map(order => (
+                <AdminOrderCard key={order.id} order={order} onStatusChange={handleStatusChange} />
+              ))}
+            </div>
+          )
+        )}
+
+        {/* ── TAB: Inventario ── */}
+        {activeTab === 'inventario' && (
+          <div>
+            {/* Alertas de stock */}
+            {(lowStock > 0 || outOfStock > 0) && (
+              <div className="flex flex-wrap gap-3 mb-5">
+                {outOfStock > 0 && (
+                  <div className="flex items-center gap-2 bg-red-50 text-red-700 border border-red-200 rounded-lg px-3 py-2 text-sm font-medium">
+                    <XCircle className="w-4 h-4" />
+                    {outOfStock} producto{outOfStock > 1 ? 's' : ''} sin stock
+                  </div>
+                )}
+                {lowStock > 0 && (
+                  <div className="flex items-center gap-2 bg-yellow-50 text-yellow-700 border border-yellow-200 rounded-lg px-3 py-2 text-sm font-medium">
+                    <AlertTriangle className="w-4 h-4" />
+                    {lowStock} con stock bajo (≤5)
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Buscador */}
+            <div className="relative mb-5">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar producto o categoría..."
+                value={searchProd}
+                onChange={e => setSearchProd(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+
+            {loadingP ? (
+              <div className="flex items-center justify-center py-16">
+                <span className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : filteredProducts.length === 0 ? (
+              <div className="bg-card rounded-xl p-12 text-center border border-border">
+                <Boxes className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                <p className="text-lg font-semibold">
+                  {searchProd ? 'Sin resultados' : 'No hay productos'}
+                </p>
+              </div>
+            ) : (
+              <div className="bg-card rounded-xl border border-border overflow-hidden">
+                <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 px-4 py-2.5 bg-muted/40 text-xs font-semibold text-muted-foreground uppercase tracking-wide border-b border-border">
+                  <span>Producto</span>
+                  <span className="text-center w-20">Categoría</span>
+                  <span className="text-center w-20">Stock actual</span>
+                  <span className="text-center w-28">Actualizar</span>
+                </div>
+                <div className="divide-y divide-border">
+                  {filteredProducts.map(product => {
+                    const isEditing  = product.id in stockEdit;
+                    const isSaving   = savingStock[product.id] ?? false;
+                    const stockValue = isEditing ? stockEdit[product.id] : String(product.stock);
+                    const isLow      = product.stock > 0 && product.stock <= 5;
+                    const isEmpty    = product.stock === 0;
+
+                    return (
+                      <motion.div
+                        key={product.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 px-4 py-3 hover:bg-muted/20 transition-colors"
+                      >
+                        {/* Nombre + imagen */}
+                        <div className="flex items-center gap-3 min-w-0">
+                          {product.image ? (
+                            <img
+                              src={product.image}
+                              alt={product.name}
+                              className="w-10 h-10 rounded-lg object-cover flex-shrink-0 border border-border"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                              <Package className="w-4 h-4 text-muted-foreground" />
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">{product.name}</p>
+                            <p className="text-xs text-muted-foreground">S/ {product.price.toFixed(2)}</p>
+                          </div>
+                        </div>
+
+                        {/* Categoría */}
+                        <div className="w-20 text-center">
+                          <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
+                            {product.category ?? '—'}
+                          </span>
+                        </div>
+
+                        {/* Stock badge */}
+                        <div className="w-20 flex justify-center">
+                          <span className={`inline-flex items-center gap-1 text-sm font-bold px-2.5 py-1 rounded-lg ${
+                            isEmpty  ? 'bg-red-100 text-red-700'
+                            : isLow  ? 'bg-yellow-100 text-yellow-700'
+                            :          'bg-green-100 text-green-700'
+                          }`}>
+                            {isEmpty && <XCircle className="w-3 h-3" />}
+                            {isLow && !isEmpty && <TrendingDown className="w-3 h-3" />}
+                            {product.stock}
+                          </span>
+                        </div>
+
+                        {/* Input + guardar */}
+                        <div className="w-28 flex items-center gap-1.5">
+                          <Input
+                            type="number"
+                            min="0"
+                            className="h-8 w-16 text-center text-sm px-1"
+                            value={stockValue}
+                            onChange={e =>
+                              setStockEdit(prev => ({ ...prev, [product.id]: e.target.value }))
+                            }
+                          />
+                          <Button
+                            size="sm"
+                            className="h-8 px-2 text-xs"
+                            disabled={!isEditing || isSaving}
+                            onClick={() => handleStockSave(product.id)}
+                          >
+                            {isSaving
+                              ? <span className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
+                              : <CheckCircle className="w-3.5 h-3.5" />
+                            }
+                          </Button>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

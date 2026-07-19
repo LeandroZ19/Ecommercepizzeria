@@ -12,13 +12,16 @@
  *
  * Otherwise, you can leave this file empty.
  */
-export default {
-  plugins: [
-    {
-      postcssPlugin: 'remove-charset',
-      Once(root) {
-        root.walkAtRules('charset', (rule) => rule.remove());
-      },
+const removeCharset = {
+  postcssPlugin: 'remove-charset',
+  AtRule: {
+    charset(atRule) {
+      atRule.remove();
     },
-  ],
+  },
+};
+removeCharset.postcss = true;
+
+export default {
+  plugins: [removeCharset],
 }

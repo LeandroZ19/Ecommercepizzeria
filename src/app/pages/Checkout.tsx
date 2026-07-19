@@ -10,7 +10,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { createOrder, saveOrderItems, decrementProductStock } from '../../../utils/supabase/db';
+import { createOrder, saveOrderItems } from '../../../utils/supabase/db';
 import { generateBoletaPDF } from '../components/BoletaPDF';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -99,26 +99,23 @@ export default function Checkout() {
       const confirmedOrderId = savedOrder.id;
       const orderNumber      = savedOrder.order_number ?? null;
 
-      // Guardar productos en order_items
-      const cartItemsPayload = items.map(item => ({
-        productId:    item.id,
-        productName:  item.name,
-        productImage: item.image ?? null,
-        price:        item.price,
-        quantity:     item.quantity,
-      }));
-      const { error: itemsErr } = await saveOrderItems(confirmedOrderId, cartItemsPayload);
+      // Guardar productos en order_items (igual que createCustomPizza guarda en custom_pizzas)
+      const { error: itemsErr } = await saveOrderItems(
+        confirmedOrderId,
+        items.map(item => ({
+          productId:    item.id,
+          productName:  item.name,
+          productImage: item.image ?? null,
+          price:        item.price,
+          quantity:     item.quantity,
+        })),
+      );
       if (itemsErr) {
-        console.error('[checkout] saveOrderItems error:', itemsErr);
-        toast.warning('Pedido creado, pero no se guardaron los productos. Ejecuta migration 016 en Supabase.');
+        toast.error(`Error guardando productos: ${itemsErr}`);
+        setIsProcessing(false);
+        return;
       }
 
-      // Decrementar stock por nombre (fallback si el trigger DB no está creado aún)
-      await Promise.allSettled(
-        items.map(item =>
-          decrementProductStock(item.name, item.quantity),
-        ),
-      );
 
       generateBoletaPDF({
         orderId:        confirmedOrderId,
